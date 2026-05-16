@@ -45,6 +45,8 @@ Parsing is dispatched by `FileParser` based on extension:
 - Composer.
 - Node.js + npm (for the front-end assets).
 - Java (required by the bundled PDFBox jar for PDF parsing).
+- Python 3 with the [`extract_msg`](https://pypi.org/project/extract-msg/)
+  module (required for parsing Outlook `.msg` files).
 - SQLite (default database; FTS5 is used for full-text search).
 - Optional: OpenAI API key or a local Ollama instance, for document
   summarisation.

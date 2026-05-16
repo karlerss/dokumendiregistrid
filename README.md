@@ -40,7 +40,7 @@ Parsing is dispatched by `FileParser` based on extension:
 
 ## Requirements
 
-- PHP 8.2+ with `ext-dom`, `ext-libxml`, `ext-simplexml`, `ext-zip`.
+- PHP 8.3 with `ext-dom`, `ext-libxml`, `ext-simplexml`, `ext-zip`.
 - Composer.
 - Node.js + npm (for the front-end assets).
 - Java (required by the bundled PDFBox jar for PDF parsing).

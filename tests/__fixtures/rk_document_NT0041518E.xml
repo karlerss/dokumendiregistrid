@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="/avalikteave.nsf/default.xsl"?>
+<document form="InDoc" noteid="NT0041518E">
+<fieldtitles>
+<fieldtitle name="companyname">Kellelt</fieldtitle>
+<fieldtitle name="indocdate">Saabumise kuupäev</fieldtitle>
+<fieldtitle name="indoccat">Saabumise viis</fieldtitle>
+<fieldtitle name="doctype">Dokumendi liik</fieldtitle>
+<fieldtitle name="docid">Dokumendi number</fieldtitle>
+<fieldtitle name="date">Kuupäev</fieldtitle>
+<fieldtitle name="otherref">Saatja viit</fieldtitle>
+<fieldtitle name="subject">Pealkiri</fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name="journalkeyhierarchy">Sari</fieldtitle>
+<fieldtitle name="docaccesstype">Juurdepääs</fieldtitle>
+<fieldtitle name="accessrestrictionbegindate">Piirangu algus</fieldtitle>
+<fieldtitle name="accessrestrictionenddate+enddatecomment">Piirangu lõpp</fieldtitle>
+<fieldtitle name="accessrestrictionreason"> Piirangu alus</fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name="body">Tekst</fieldtitle>
+</fieldtitles>
+<field name="companyname">Regionaal- ja Põllumajandusministeerium</field>
+<field name="indocdate">15.05.2026</field>
+<field name="indoccat">E-post</field>
+<field name="doctype">Kabinetinõupidamise materjalid</field>
+<field name="docid">26-01009-1</field>
+<field name="date">15.05.2026</field>
+<field name="journalkeyhierarchy">02 Vabariigi Valitsuse istungite ja nõupidamiste ettevalmistamine ja korraldamine/2-8 Vabariigi Valitsuse nõupidamiste dokumendid</field>
+<field name="docaccesstype">Asutusesiseseks kasutamiseks</field>
+<field name="accessrestrictionbegindate">12.05.2026</field>
+<field name="accessrestrictionenddate+enddatecomment">12.05.2031 dokumendi vastuvõtmine või allkirjastamine</field>
+<field name="accessrestrictionreason">AvTS § 35 lg 2 p 2 - Dokumendi kavand ja selle juurde kuuluvad dokumendid</field>
+
+<case number="26-01009">
+<document noteid="NT0041518E" href="/avalikteave.nsf/documents/NT0041518E?open">
+<field name="docid" link="true">26-01009-1</field>
+<field name="subject" link="true"></field>
+</document>
+</case>
+</document>

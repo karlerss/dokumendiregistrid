@@ -1,0 +1,55 @@
+# Dependencies
+/node_modules
+/vendor
+
+# Build artefacts
+/public/build
+/public/hot
+/public/storage
+
+# Laravel storage / runtime
+/storage/*.key
+/storage/pail
+/.phpunit.cache
+/.phpunit.result.cache
+
+# Environment / secrets
+.env
+.env.backup
+.env.production
+auth.json
+
+# Editor / IDE
+/.fleet
+/.idea
+/.vscode
+.DS_Store
+Thumbs.db
+
+# Homestead
+Homestead.json
+Homestead.yaml
+
+# Logs
+npm-debug.log
+yarn-error.log
+*.log
+
+# SQLite databases (anywhere in the tree)
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+
+# Meilisearch
+/data.ms
+/meili_data
+/meilisearch
+/dumps
+
+# Stray local files / scratch
+/,
+/assistant,
+/user,
+/app/Console/Commands/debug_output.log
+/app/Console/Commands/log_output.txt

@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.file-tree-item {
+    position: relative;
+}
+
+.file-tree .file-tree-item:before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    top: -4px;
+    left: 0;
+    width: 100%;
+    bottom: -4px;
+    background: repeating-linear-gradient(to right, var(--gray-100, #dcdcde), var(--gray-100, #dcdcde) 1px, transparent 1px, transparent 14px);
+    background-size: calc(var(--level) * 14px) 100%;
+    background-repeat: no-repeat;
+    background-position: 14px;
+}
+
+.with-lists ul, .ai-summary ul {
+    padding-left: 1rem !important;
+}
+
+.with-lists ul li, .ai-summary ul li {
+    list-style: disc;
+}
+
+.with-lists ol, .ai-summary ol {
+    padding-left: 1rem !important;
+    list-style-type: decimal;
+}

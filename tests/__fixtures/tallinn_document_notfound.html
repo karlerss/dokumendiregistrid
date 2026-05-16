@@ -1,0 +1,209 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <title>Tallinna ametiasutuste dokumendiregister</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="keywords" content="Tallinna ametiasutuste dokumendiregister">
+    <meta name="description" content="Tallinna ametiasutuste dokumendiregister">
+    <meta name="robots" content="noindex">
+
+
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <link rel="stylesheet" href="/atp/px_custom/tallinna_adr/bootstrap-customized.css">
+    <script src="/atp/px_custom/tallinna_adr/bootstrap-customized.js"></script>
+    <link rel="stylesheet" href="/atp/px_custom/tallinna_adr/bootstrap-select.css">
+    <script src="/atp/px_custom/tallinna_adr/bootstrap-select.js"></script>
+    <script src="/atp/px_custom/tallinna_adr/bootstrap-select-defaults-et_EE.js"></script>
+
+
+    <link rel="stylesheet" href="/atp/px_custom/tallinna_adr/screen.css?ver=20210825_194711">
+    <link rel="stylesheet" href="/atp/styles.php?ver=20210825_194711">
+
+    <script src="/atp/js/yld.js"></script>
+
+</head>
+
+<body>
+
+    <div id="header_container">
+        <div id="header_logo" style="background-image: url('/atp/px_custom/tallinna_adr/dokregister_uus.png');"></div>
+    </div>
+
+    <div id="main_container">
+
+        <div id="sidebar_container">
+
+            <div id="side_menu_container">
+                <ul>
+                                                    <li class="active"><a href="/atp/?id=1255">Dokumentide kataloog</a></li>
+                                                                                                
+                                                                                <li ><a href="/atp/?id=1271">Detailotsing</a></li>
+                                                        <li ><a href="/atp/?id=1258">Kasutusjuhend</a></li>
+                                                        <li ><a href="/atp/?id=1256">Teabenõude esitamine</a></li>
+                                                        <li ><a href="/atp/?id=1278">Märgukirja või selgitustaotluse esitamine</a></li>
+                                     
+                </ul>
+            </div> <!-- / side_menu_container -->
+
+            <form method="get" action="/atp/" name="quickform" id="quickform" onkeyup="javascript: if(event.keyCode==13){document.forms['quickform'].submit();}">
+            <div id="search_container">
+                <dl>
+                    <dt>Kiirotsing</dt>
+                    <dd><div>Pealkiri</div><input type="text" name="pealkiri" id="pealkiri"/></dd>
+                    <dd><div>Reg nr</div><input type="text" class="short" name="regnr" id="regnr"/><a href="#" class="search_button" onclick="document.forms['quickform'].submit()">   </a>
+                    <input type="hidden" name="c_tpl" value="1092">
+                    <input type="hidden" name="c_tpl" value="1092">
+                    <input type="hidden" name="command" value="quick">
+                    <input type="hidden" name="page" value="1"></dd>
+                    <dd>Registreerimiskuupäev</dd>
+                </dl>
+            </div> <!-- / search_container -->
+            </form>
+
+            <!-- calendar saurus cms template, should be changed during programming -->
+            <div id="calendar">
+<form method="get" action="/atp/" name="calendarform" id="calendarform">
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td class="calendar_header">
+            <a href="/atp/?c_tpl=1092&command=details&dok_id=5709362&calmonth=11&calyear=2025">« </a><select name="calmonth" id="calmonth" onchange="document.forms['calendarform'].submit()">
+<option value="1">Jaanuar</option>
+<option value="2">Veebruar</option>
+<option value="3">Märts</option>
+<option value="4">Aprill</option>
+<option value="5">Mai</option>
+<option value="6">Juuni</option>
+<option value="7">Juuli</option>
+<option value="8">August</option>
+<option value="9">September</option>
+<option value="10">Oktoober</option>
+<option value="11">November</option>
+<option value="12" selected>Detsember</option>
+</select>
+<a href="/atp/?c_tpl=1092&command=details&dok_id=5709362&calmonth=1&calyear=2026">» </a>        </td>
+        <td class="calendar_header">
+            <select name="calyear" id="calyear" onchange="document.forms['calendarform'].submit()">
+<option value="2025" selected>2025</option>
+<option value="2024">2024</option>
+<option value="2023">2023</option>
+<option value="2022">2022</option>
+<option value="2021">2021</option>
+<option value="2020">2020</option>
+<option value="2019">2019</option>
+<option value="2018">2018</option>
+<option value="2017">2017</option>
+<option value="2016">2016</option>
+<option value="2015">2015</option>
+<option value="2014">2014</option>
+<option value="2013">2013</option>
+<option value="2012">2012</option>
+<option value="2011">2011</option>
+<option value="2010">2010</option>
+<option value="2009">2009</option>
+</select>
+<input type="hidden" name="c_tpl" value="1092">
+<input type="hidden" name="command" value="details">
+<input type="hidden" name="dok_id" value="5709362">        </td>
+    </tr>
+    <tr>
+        <td colspan="2">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                    <td class="weekday"> </td>
+                    <td class="weekday"><b>E</b></td>
+                    <td class="weekday"><b>T</b></td>
+                    <td class="weekday"><b>K</b></td>
+                    <td class="weekday"><b>N</b></td>
+                    <td class="weekday"><b>R</b></td>
+                    <td class="weekday"><b>L</b></td>
+                    <td class="weekday"><b>P</b></td>
+                </tr>
+
+                <tr>
+<td class="week_nr"><a href="/atp/?c_tpl=1092&command=week&dok_id=5709362&page=1&year=2025&month=12&day=1" class="day_bd"><b>49.</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=1" class="day_bd"><b>1</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=2" class="day_bd"><b>2</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=3" class="day_bd"><b>3</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=4" class="day_bd"><b>4</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=5" class="day_bd"><b>5</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=6" class="day_bd"><b>6</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=7" class="day_bd"><b>7</b></a></td>
+</tr>
+<tr>
+<td class="week_nr"><a href="/atp/?c_tpl=1092&command=week&dok_id=5709362&page=1&year=2025&month=12&day=8" class="day_bd"><b>50.</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=8" class="day_bd"><b>8</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=9" class="day_bd"><b>9</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=10" class="day_bd"><b>10</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=11" class="day_bd"><b>11</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=12" class="day_bd"><b>12</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=13" class="day_bd"><b>13</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=14" class="day_bd"><b>14</b></a></td>
+</tr>
+<tr>
+<td class="week_nr"><a href="/atp/?c_tpl=1092&command=week&dok_id=5709362&page=1&year=2025&month=12&day=15" class="day_bd"><b>51.</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=15" class="day_bd"><b>15</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=16" class="day_bd"><b>16</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=17" class="day_bd"><b>17</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=18" class="day_bd"><b>18</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=19" class="day_bd"><b>19</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=20" class="day_bd"><b>20</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=21" class="day_bd"><b>21</b></a></td>
+</tr>
+<tr>
+<td class="week_nr"><a href="/atp/?c_tpl=1092&command=week&dok_id=5709362&page=1&year=2025&month=12&day=22" class="day_bd"><b>52.</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=22" class="day_bd"><b>22</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=23" class="day_bd"><b>23</b></a></td>
+<td><a href="/atp/?c_tpl=1092&command=calendar&dok_id=5709362&page=1&year=2025&month=12&day=24" class="day_bd"><b>24</b></a></td>
+<td>25</td>
+<td>26</td>
+<td>27</td>
+<td>28</td>
+</tr>
+<tr>
+<td class="week_nr" align="right">1.</td>
+<td>29</td>
+<td>30</td>
+<td>31</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+
+                <tr>
+                    <td colspan="8"> </td>
+                </tr>
+                <tr>
+                    <td colspan="8"> </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</form>
+            </div><!-- /calendar -->
+
+        </div> <!-- / sidebar_container -->
+
+        <div id="content">
+            <div id="content_wrapper">
+            <div class="catalog_details">
+<div class="doc_paging"><a href="#" onclick="history.go(-1);">« tagasi</a></div>
+</div>
+<div id="document_container">
+</div><!-- #document_container -->
+            </div>
+        </div><!-- #content -->
+
+    </div> <!-- / main_container -->
+
+    <div id="footer_container">
+        Copyright 2005
+        <a target="_blank" href="http://www.tallinn.ee">www.tallinn.ee</a>
+    </div>
+
+
+</body>
+</html>
+

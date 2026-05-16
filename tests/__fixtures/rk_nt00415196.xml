@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="/avalikteave.nsf/default.xsl"?>
+<document form="InDoc" noteid="NT00415196">
+<fieldtitles>
+<fieldtitle name="companyname">Kellelt</fieldtitle>
+<fieldtitle name="indocdate">Saabumise kuupäev</fieldtitle>
+<fieldtitle name="indoccat">Saabumise viis</fieldtitle>
+<fieldtitle name="doctype">Dokumendi liik</fieldtitle>
+<fieldtitle name="docid">Dokumendi number</fieldtitle>
+<fieldtitle name="date">Kuupäev</fieldtitle>
+<fieldtitle name="otherref">Saatja viit</fieldtitle>
+<fieldtitle name="subject">Pealkiri</fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name="journalkeyhierarchy">Sari</fieldtitle>
+<fieldtitle name="docaccesstype">Juurdepääs</fieldtitle>
+<fieldtitle name="accessrestrictionbegindate">Piirangu algus</fieldtitle>
+<fieldtitle name="accessrestrictionenddate+enddatecomment">Piirangu lõpp</fieldtitle>
+<fieldtitle name="accessrestrictionreason"> Piirangu alus</fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name="body">Tekst</fieldtitle>
+</fieldtitles>
+<field name="companyname">Kliimaministeerium</field>
+<field name="indocdate">15.05.2026</field>
+<field name="indoccat">Dokumendivahetuskeskus</field>
+<field name="doctype">Kiri</field>
+<field name="docid">26-00914-2</field>
+<field name="date">15.05.2026</field>
+<field name="otherref">1-5/26/1740-2 </field>
+<field name="subject">Eesti mehitamata sõidukite sektori arengu lähtealused ja teekaart 2026-2030 vastuskiri</field>
+<field name="journalkeyhierarchy">07 Vabariigi Valitsuse ja peaministri muu asjaajamine/7-2 Kirjavahetus õigusaktide eelnõude kooskõlastamise asjus</field>
+<file size="133167" href="/avalikteave.nsf/documents/NT00415196/$file/Eesti mehitamata sõidukite sektori arengu lähtealused ja teekaart 2026-2030 vastuskiri.pdf">Eesti mehitamata sõidukite sektori arengu lähtealused ja teekaart 2026-2030 vastuskiri.pdf</file>
+
+<case number="26-00914">
+<document noteid="NT00414ECE" href="/avalikteave.nsf/documents/NT00414ECE?open">
+<field name="docid" link="true">26-00914-1</field>
+<field name="subject" link="true">Eesti mehitamata sõidukite sektori arengu lähtealused ja teekaart 2026-2030</field>
+</document>
+<document noteid="NT00415196" href="/avalikteave.nsf/documents/NT00415196?open">
+<field name="docid" link="true">26-00914-2</field>
+<field name="subject" link="true">Eesti mehitamata sõidukite sektori arengu lähtealused ja teekaart 2026-2030 vastuskiri</field>
+</document>
+</case>
+</document>

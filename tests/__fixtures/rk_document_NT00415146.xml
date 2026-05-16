@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="/avalikteave.nsf/default.xsl"?>
+<document form="frmGovernmentSessionReceived" noteid="NT00415146">
+<fieldtitles>
+<fieldtitle name="govinstitution">Kellelt</fieldtitle>
+<fieldtitle name="docid">Dokumendi number</fieldtitle>
+<fieldtitle name="date">Saabumise kuupäev</fieldtitle>
+<fieldtitle name="indoccat">Saabumise viis</fieldtitle>
+<fieldtitle name="acttype">Dokumendi liik</fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name="dtdeadline">Tähtaeg</fieldtitle>
+<fieldtitle name="eisref"> EIS viit</fieldtitle>
+<fieldtitle name="eis$vol.initiatorrefs">Saatja viit</fieldtitle>
+<fieldtitle name="subject">Pealkiri</fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name="journalkeyhierarchy">Sari</fieldtitle>
+<fieldtitle name="docaccesstype">Juurdepääs</fieldtitle>
+<fieldtitle name="accessrestrictionbegindate">Piirangu algus</fieldtitle>
+<fieldtitle name="accessrestrictionenddate+enddatecomment">Piirangu lõpp</fieldtitle>
+<fieldtitle name="accessrestrictionreason"> Piirangu alus</fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name="body">Tekst</fieldtitle>
+<fieldtitle name="govinstitution">Kellelt</fieldtitle>
+<fieldtitle name="docid">Dokumendi number</fieldtitle>
+<fieldtitle name="date">Saabumise kuupäev</fieldtitle>
+<fieldtitle name="indoccat">Saabumise viis</fieldtitle>
+<fieldtitle name="acttype">Dokumendi liik</fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name="dtdeadline">Tähtaeg</fieldtitle>
+<fieldtitle name="eisref"> EIS viit</fieldtitle>
+<fieldtitle name="eis$vol.initiatorrefs">Saatja viit</fieldtitle>
+<fieldtitle name="subject">Pealkiri</fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name="journalkeyhierarchy">Sari</fieldtitle>
+<fieldtitle name="docaccesstype">Juurdepääs</fieldtitle>
+<fieldtitle name="accessrestrictionbegindate">Piirangu algus</fieldtitle>
+<fieldtitle name="accessrestrictionenddate+enddatecomment">Piirangu lõpp</fieldtitle>
+<fieldtitle name="accessrestrictionreason"> Piirangu alus</fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name=""></fieldtitle>
+<fieldtitle name="body">Tekst</fieldtitle>
+</fieldtitles>
+<field name="govinstitution">Rahandusministeerium</field>
+<field name="docid">26-00992-1</field>
+<field name="date">13.05.2026</field>
+<field name="acttype">Määruse eelnõu</field>
+<field name="eisref">RAM/26-0553/01-1E</field>
+<field name="eis$vol.initiatorrefs">1.1-10.1/2091-1</field>
+<field name="journalkeyhierarchy">02 Vabariigi Valitsuse istungite ja nõupidamiste ettevalmistamine ja korraldamine/2-5 Vabariigi Valitsuse otsuste alusdokumendid</field>
+<field name="docaccesstype">Asutusesiseseks kasutamiseks</field>
+<field name="accessrestrictionbegindate">12.05.2026</field>
+<field name="accessrestrictionenddate+enddatecomment">12.05.2031 dokumendi kooskõlastamiseks saatmine või vastuvõtmiseks esitamine</field>
+<field name="accessrestrictionreason">AvTS § 35 lg 2 p 1 - Õigusaktide eelnõud enne nende kooskõlastamiseks saatmist või vastuvõtmiseks esitamist</field>
+
+<case number="26-00992">
+<document noteid="NT00415146" href="/avalikteave.nsf/documents/NT00415146?open">
+<field name="docid" link="true">26-00992-1</field>
+<field name="subject" link="true"></field>
+</document>
+</case>
+</document>

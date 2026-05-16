@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+    <meta charset="utf-8"/>
+    <!--[if IE]>
+    <meta content="IE=edge,chrome=1" http-equiv="X-UA-Compatible"/>
+    <![endif]-->
+    <title>Justiitsministeeriumi avalik dokumendiregister</title>
+    <meta content="Webmedia" name="Author"/>
+    <meta content="" name="Keywords"/>
+    <meta content="" name="Description"/>
+    <meta content="noindex, nofollow" name="robots"/>
+    <meta content="noindex" name="googlebot"/>
+    <link href="/gfx/_reset.css" rel="stylesheet"/>
+    <link media="screen, projection, tv" href="/gfx/_screen.css" rel="stylesheet"/>
+    <link media="screen, projection, tv" href="/cal/jquery.datepick.css" rel="stylesheet"/>
+    <link media="print" href="/gfx/_print.css" rel="stylesheet"/>
+    <script>document.documentElement.className += " js";</script>
+</head>
+<body>
+<div id="wrap">
+    <div id="header">
+        <div class="aligner"><p id="logo"><a href="/jm/">Justiitsministeeriumi avalik dokumendiregister</a></p>
+            <form id="quickSearch" action="/jm/kiirotsing" method="post"><p id="search"><input id="input" name="input"
+                                                                                               class="txt"
+                                                                                               title="Otsing &uuml;le k&otilde;igi dokumendi andmete"
+                                                                                               type="text"
+                                                                                               value=""/><input
+                value="1" name="pageNumber" type="hidden"/><input value="Otsi" class="button" type="submit"/></p></form>
+        </div>
+    </div>
+    <div id="nav">
+        <div class="aligner">
+            <ul>
+                <li class="active"><a href="/jm/">Dokumentide loetelu</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="clear" id="page">
+        <div class="aligner">
+            <div id="sidebarcontainer">
+                <div id="sidebar">
+                    <div class="inner">
+                        <form id="advancedSearch" action="/jm/otsing" method="post">
+                            <div class="form-row hint-trigger"><label for="title">Pealkiri:</label><input id="title"
+                                                                                                          name="title"
+                                                                                                          class="text"
+                                                                                                          type="text"
+                                                                                                          value=""/>
+                                <div class="hint-content"><p>Dokumendi pealkiri</p></div>
+                            </div>
+                            <div class="form-row hint-trigger"><label>Registreerimise kpv:</label><span
+                                class="form-subrow clear"><input id="regDateBegin" name="regDateBegin" class="date"
+                                                                 type="text" value=""/><label for="regDateBegin"
+                                                                                              class="field-comment">(alates)</label></span><span
+                                class="form-subrow clear"><input id="regDateEnd" name="regDateEnd" class="date"
+                                                                 type="text" value=""/><label for="regDateEnd"
+                                                                                              class="field-comment">(kuni)</label></span>
+                                <div class="hint-content"><p>Vali kalendrist dokumendi registreerimise algus- ja/või
+                                    lõppkuupäev</p></div>
+                            </div>
+                            <div class="form-row hint-trigger"><label>Dokumendi liik:</label>
+                                <div class="multi-select"><a title="" class="multi-select-trigger"
+                                                             href="javascript: void(0);" id="i02-04"><span></span></a>
+                                    <ul class="multi-select-list">
+                                        <li class="item"><em class="input"><input id="documentType-13074"
+                                                                                  name="documentTypes" type="checkbox"
+                                                                                  value="13074"/><input type="hidden"
+                                                                                                        name="_documentTypes"
+                                                                                                        value="on"/></em><label
+                                            class="clear" for="documentType-13074"><span>Leping</span></label></li>
+                                        <li class="item"><em class="input"><input id="documentType-11474"
+                                                                                  name="documentTypes" type="checkbox"
+                                                                                  value="11474"/><input type="hidden"
+                                                                                                        name="_documentTypes"
+                                                                                                        value="on"/></em><label
+                                            class="clear" for="documentType-11474"><span>Sissetulev kiri</span></label>
+                                        </li>
+                                        <li class="item"><em class="input"><input id="documentType-690703"
+                                                                                  name="documentTypes" type="checkbox"
+                                                                                  value="690703"/><input type="hidden"
+                                                                                                         name="_documentTypes"
+                                                                                                         value="on"/></em><label
+                                            class="clear" for="documentType-690703"><span>Korraldus</span></label></li>
+                                        <li class="item"><em class="input"><input id="documentType-672637"
+                                                                                  name="documentTypes" type="checkbox"
+                                                                                  value="672637"/><input type="hidden"
+                                                                                                         name="_documentTypes"
+                                                                                                         value="on"/></em><label
+                                            class="clear" for="documentType-672637"><span>Käskkiri</span></label></li>
+                                        <li class="item"><em class="input"><input id="documentType-7374570"
+                                                                                  name="documentTypes" type="checkbox"
+                                                                                  value="7374570"/><input type="hidden"
+                                                                                                          name="_documentTypes"
+                                                                                                          value="on"/></em><label
+                                            class="clear"
+                                            for="documentType-7374570"><span>Ministri määrus</span></label></li>
+                                        <li class="item"><em class="input"><input id="documentType-11467"
+                                                                                  name="documentTypes" type="checkbox"
+                                                                                  value="11467"/><input type="hidden"
+                                                                                                        name="_documentTypes"
+                                                                                                        value="on"/></em><label
+                                            class="clear" for="documentType-11467"><span>Väljaminev kiri</span></label>
+                                        </li>
+                                        <li class="item"><em class="input"><input id="documentType-15029962"
+                                                                                  name="documentTypes" type="checkbox"
+                                                                                  value="15029962"/><input type="hidden"
+                                                                                                           name="_documentTypes"
+                                                                                                           value="on"/></em><label
+                                            class="clear"
+                                            for="documentType-15029962"><span>Õigusakti eelnõu</span></label></li>
+                                        <li class="item"><em class="input"><input id="documentType-7874151"
+                                                                                  name="documentTypes" type="checkbox"
+                                                                                  value="7874151"/><input type="hidden"
+                                                                                                          name="_documentTypes"
+                                                                                                          value="on"/></em><label
+                                            class="clear" for="documentType-7874151"><span>Väikehange</span></label>
+                                        </li>
+                                        <li class="all"><em class="input"><input value="" name="documentTypesAll"
+                                                                                 type="checkbox"/></em><label
+                                            class="clear"><span>Vali kõik</span></label></li>
+                                    </ul>
+                                </div>
+                                <div class="hint-content"><p>Vali alljärgnevast loetelust otsingule sobivad dokumendi
+                                    liigid</p></div>
+                            </div>
+                            <div class="form-row hint-trigger"><label for="party">Teine osapool:</label><input
+                                id="party" name="party" class="text" type="text" value=""/>
+                                <div class="hint-content"><p>Isik/asutus, kellele dokument on saadetud või kellelt
+                                    saadud või kes on dokumendi väline osapool</p></div>
+                            </div>
+                            <div class="form-row hint-trigger"><label for="senderRegNr">Saatja viit:</label><input
+                                id="senderRegNr" name="senderRegNr" class="text" type="text" value=""/>
+                                <div class="hint-content"><p>Välise asutuse poolt määratud dokumendi viit</p></div>
+                            </div>
+                            <div class="form-row hint-trigger"><label>Saabumis/saatmisviis:</label>
+                                <div class="multi-select"><a title="" class="multi-select-trigger"
+                                                             href="javascript: void(0);" id="i02-05"><span></span></a>
+                                    <ul class="multi-select-list">
+                                        <li class="item"><em class="input"><input id="transmittalMode-0"
+                                                                                  name="transmittalModes"
+                                                                                  type="checkbox" value="0"/><input
+                                            type="hidden" name="_transmittalModes" value="on"/></em><label class="clear"
+                                                                                                           for="transmittalMode-0"><span>e-post</span></label>
+                                        </li>
+                                        <li class="item"><em class="input"><input id="transmittalMode-1"
+                                                                                  name="transmittalModes"
+                                                                                  type="checkbox" value="1"/><input
+                                            type="hidden" name="_transmittalModes" value="on"/></em><label class="clear"
+                                                                                                           for="transmittalMode-1"><span>Riigiportaal eesti.ee</span></label>
+                                        </li>
+                                        <li class="item"><em class="input"><input id="transmittalMode-2"
+                                                                                  name="transmittalModes"
+                                                                                  type="checkbox" value="2"/><input
+                                            type="hidden" name="_transmittalModes" value="on"/></em><label class="clear"
+                                                                                                           for="transmittalMode-2"><span>DVK</span></label>
+                                        </li>
+                                        <li class="item"><em class="input"><input id="transmittalMode-3"
+                                                                                  name="transmittalModes"
+                                                                                  type="checkbox" value="3"/><input
+                                            type="hidden" name="_transmittalModes" value="on"/></em><label class="clear"
+                                                                                                           for="transmittalMode-3"><span>post</span></label>
+                                        </li>
+                                        <li class="all"><em class="input"><input value="" name="transmittalModesAll"
+                                                                                 type="checkbox"/></em><label
+                                            class="clear"><span>Vali kõik</span></label></li>
+                                    </ul>
+                                </div>
+                                <div class="hint-content"><p>Vali alljärgnevast loetelust otsingule sobivad saabumise
+                                    või saatmise viisid</p></div>
+                            </div>
+                            <div class="form-row hint-trigger"><label for="accessRestriction">Juurdepääs:</label><select
+                                id="accessRestriction" name="accessRestriction" class="text">
+                                <option value=""></option>
+                                <option value="Avalik">Avalik</option>
+                                <option value="AK">AK</option>
+                            </select>
+                                <div class="hint-content"><p>Vali dokumendile juurdepääsu tüüp</p></div>
+                            </div>
+                            <div class="form-row hint-trigger"><label for="accessRestrictionReason">Juurdepääsupiirangu
+                                alus:</label><input id="accessRestrictionReason" name="accessRestrictionReason"
+                                                    class="text" type="text" value=""/>
+                                <div class="hint-content"><p>Dokumendi juurdepääsupiirangu alus</p></div>
+                            </div>
+                            <div class="form-row hint-trigger"><label>Juurdepääsu lõpu kpv:</label><span
+                                class="form-subrow clear"><input id="accessRestrictionBeginDate"
+                                                                 name="accessRestrictionBeginDate" class="date"
+                                                                 type="text" value=""/><label
+                                for="accessRestrictionBeginDate" class="field-comment">(alates)</label></span><span
+                                class="form-subrow clear"><input id="accessRestrictionEndDate"
+                                                                 name="accessRestrictionEndDate" class="date"
+                                                                 type="text" value=""/><label
+                                for="accessRestrictionEndDate" class="field-comment">(kuni)</label></span>
+                                <div class="hint-content"><p>Vali kalendrist dokumendi juurdepääsupiirangu lõpu aja
+                                    järgi piirangu määramise perioodi algus- ja/või lõppkuupäev</p></div>
+                            </div>
+                            <div class="form-row hint-trigger"><p><input value="1" name="pageNumber"
+                                                                         type="hidden"/><input value="Otsi"
+                                                                                               class="button"
+                                                                                               type="submit"/></p>
+                                <div class="hint-content"><p>Otsingu teostamiseks on vähemalt ühe otsingu välja täitmine
+                                    kohustuslik</p></div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <img alt="Euroopa Regionaalarengu Fond" src="/gfx/logo_euro2.png" id="eulogo"/></div>
+            <div id="content"><h1>Dokument</h1>
+                <div class="title clear"><h2>Metaandmed</h2></div>
+                <table class="form">
+                    <tbody>
+                    <tr>
+                        <th class="nowrap">Viit:</th>
+                        <td class="data">2-1/2801</td>
+                    </tr>
+                    <tr>
+                        <th class="nowrap">Registreerimise kpv:</th>
+                        <td class="data">19.03.2024</td>
+                    </tr>
+                    <tr>
+                        <th class="nowrap">Dokumendi liik:</th>
+                        <td class="data">Väljaminev kiri</td>
+                    </tr>
+                    <tr>
+                        <th class="nowrap">Pealkiri:</th>
+                        <td class="data">Vastus</td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="hr">
+                    <hr/>
+                </div>
+                <table class="form">
+                    <tbody>
+                    <tr>
+                        <th class="nowrap">Funktsioon:</th>
+                        <td class="data">2 Asjajamine ja infotehnoloogiahaldus</td>
+                    </tr>
+                    <tr>
+                        <th class="nowrap">Sari:</th>
+                        <td class="data">2-1 Kirjavahetus asjaajamise, arhiivi ja dokumendihalduse küsimustes</td>
+                    </tr>
+                    <tr>
+                        <th class="nowrap">Toimik:</th>
+                        <td class="data">2-1/2024</td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="hr">
+                    <hr/>
+                </div>
+                <table class="form">
+                    <tbody>
+                    <tr>
+                        <th class="nowrap">Juurdepääsupiirang:</th>
+                        <td class="data">Avalik</td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="hr">
+                    <hr/>
+                </div>
+                <table class="form">
+                    <tbody>
+                    <tr>
+                        <th class="nowrap">
+                            Adressaat:
+                        </th>
+                        <td class="data">Advokaadibüroo LEVIN OÜ, Advokaadibüroo LEVIN OÜ</td>
+                    </tr>
+                    <tr>
+                        <th class="nowrap">Saabumis/saatmisviis:</th>
+                        <td class="data">e-post</td>
+                    </tr>
+                    <tr>
+                        <th class="nowrap">Vastutaja:</th>
+                        <td class="data">Marilin Reintamm (Justiitsministeerium, Kantsleri vastutusvaldkond,
+                            Justiitshalduspoliitika valdkond, Justiitshalduspoliitika osakond, Kohtute talitus)
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="nowrap">Välja saatmise kuupäev:</th>
+                        <td class="data">20.03.2024 08:19</td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="title clear"><h2>Failid</h2></div>
+                <table class="data hover">
+                    <thead>
+                    <tr>
+                        <th>Nimetus</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td><a href="/jm/fail/15194965/2-12801%2019.03.2024%20V%C3%A4ljaminev%20kiri.asice">2-12801
+                            19.03.2024 Väljaminev kiri.asice</a></td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="title clear"><h2>Seosed</h2></div>
+                <table class="data hover">
+                    <thead>
+                    <tr>
+                        <th class="nowrap">Liik</th>
+                        <th class="nowrap">Viit</th>
+                        <th>Pealkiri</th>
+                        <th class="nowrap">Seos</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td class="nowrap"><a href="/jm/dokument/15191692">Sissetulev kiri</a></td>
+                        <td class="nowrap"><a href="/jm/dokument/15191692">2-1/2801</a></td>
+                        <td><a href="/jm/dokument/15191692">Teabenõue</a></td>
+                        <td class="nowrap"><a href="/jm/dokument/15191692">alusdokument</a></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div id="footer">
+        <div class="aligner"><p><strong>Justiitsministeerium</strong><span class="sep">|</span>
+            v1.4.17.1<span class="sep">|</span>
+            Telefon: 620 8100<span class="sep">|</span>
+            E-post: <a href="mailto:info@just.ee">info@just.ee</a><br/></p></div>
+    </div>
+</div>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js"></script>
+<script>!window.jQuery && document.write(unescape('%3Cscript src="/js/jquery.js"%3E%3C/script%3E'))</script>
+<script src="/js/plugins.js"></script>
+<script src="/cal/jquery.datepick.min.js"></script>
+<script src="/js/custom.js"></script>
+</body>
+</html>

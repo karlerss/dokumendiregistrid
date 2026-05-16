@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl" href="/avalikteave.nsf/default.xsl"?>
+<entries viewname="search" viewtitle="Otsing" start="21" count="20" query="%5Bdate%5D%3E%3D13.05.2026%20AND%20%5Bdate%5D%3C%3D13.05.2026" searchorder="4" searchmax="250" hits="20" totalhits="15" from="21" to="40" prev="1" next="41">
+<link rel="start" title="algus" href="/avalikteave.nsf/search?open&amp;query=%5Bdate%5D%3E%3D13.05.2026%20AND%20%5Bdate%5D%3C%3D13.05.2026&amp;searchorder=4&amp;searchmax=250&amp;count=20"/>
+<link rel="prev" title="eelmised" href="/avalikteave.nsf/search?open&amp;start=1&amp;query=%5Bdate%5D%3E%3D13.05.2026%20AND%20%5Bdate%5D%3C%3D13.05.2026&amp;searchorder=4&amp;searchmax=250&amp;count=20"/>
+<fieldtitles>
+<fieldtitle name="subject">Pealkiri</fieldtitle>
+<fieldtitle name="date">Kuupäev</fieldtitle>
+<fieldtitle name="from">Autor</fieldtitle>
+<fieldtitle name="receivedfrom">Kellelt saabunud</fieldtitle>
+<fieldtitle name="sentto">Kellele saadetud</fieldtitle>
+<fieldtitle name="docid">Dokumendi nr</fieldtitle>
+<fieldtitle name="docnumber">Dokumendi nr</fieldtitle>
+<fieldtitle name="documenttype">Liik</fieldtitle>
+<fieldtitle name="docissuer">Väljaandja</fieldtitle>
+<fieldtitle name="contentkeywords">Sisu märksõnad</fieldtitle>
+<fieldtitle name="protocolnumber">Protokolli number</fieldtitle>
+<fieldtitle name="meetingplace">Toimumise koht</fieldtitle>
+<fieldtitle name="contractstartdate">Kehtivuse algus</fieldtitle>
+<fieldtitle name="contractenddate">Kehtivuse lõpp</fieldtitle>
+</fieldtitles>
+</entries>

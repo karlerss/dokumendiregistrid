@@ -1,0 +1,21 @@
+https://adr.envir.ee/et/index.html
+https://dok.hm.ee/et/index.html
+https://dokumendiregister.pria.ee/et/
+https://dokumendiregister.rahandusministeerium.ee/?a=stat
+https://adr.rmit.ee/?a=rmit
+https://adr.envir.ee/
+
+# other 1
+https://dhsavalik.agri.ee/
+https://adr.tervisekassa.ee/?page=pub_startup&desktop=57835&tid=57856
+
+#other
+https://dok-register.vm.ee/
+https://atp.tootukassa.ee/dokumendiotsing/
+
+# other 2
+https://www.riigikontroll.ee/Riigikontrollkuiasutus/Dokumendiregister/Dokumendiregistriotsing/tabid/258/language/et-EE/Default.aspx
+
+# other 3
+https://dhs.riigikantselei.ee/avalikteave.nsf/searchform?open
+

@@ -1,0 +1,110 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl" href="/avalikteave.nsf/default.xsl"?>
+<entries viewname="search" viewtitle="Otsing" start="1" count="20" query="%5Bdate%5D%3E%3D13.05.2026%20AND%20%5Bdate%5D%3C%3D13.05.2026" searchorder="4" searchmax="250" hits="20" totalhits="15" from="1" to="20" prev="1" next="21">
+<fieldtitles>
+<fieldtitle name="subject">Pealkiri</fieldtitle>
+<fieldtitle name="date">Kuupäev</fieldtitle>
+<fieldtitle name="from">Autor</fieldtitle>
+<fieldtitle name="receivedfrom">Kellelt saabunud</fieldtitle>
+<fieldtitle name="sentto">Kellele saadetud</fieldtitle>
+<fieldtitle name="docid">Dokumendi nr</fieldtitle>
+<fieldtitle name="docnumber">Dokumendi nr</fieldtitle>
+<fieldtitle name="documenttype">Liik</fieldtitle>
+<fieldtitle name="docissuer">Väljaandja</fieldtitle>
+<fieldtitle name="contentkeywords">Sisu märksõnad</fieldtitle>
+<fieldtitle name="protocolnumber">Protokolli number</fieldtitle>
+<fieldtitle name="meetingplace">Toimumise koht</fieldtitle>
+<fieldtitle name="contractstartdate">Kehtivuse algus</fieldtitle>
+<fieldtitle name="contractenddate">Kehtivuse lõpp</fieldtitle>
+</fieldtitles>
+<document noteid="NT00415116" href="/avalikteave.nsf/documents/NT00415116?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-01000-1</field>
+<field name="documenttype">Esitatud istungi materjalid</field>
+<field name="subject">Vabariigi Valitsuse 19. veebruari 2026. a määruse nr 26 „Karjääriastmete nimetused ja palgakoefitsiendid ning karjääriastmete omistamise tingimused“ muutmise eelnõu</field>
+</document>
+<document noteid="NT0041511A" href="/avalikteave.nsf/documents/NT0041511A?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00952-3</field>
+<field name="documenttype">Kiri</field>
+<field name="subject">Arupärimistele vastamine (AP 1004 ja AP 1007)</field>
+</document>
+<document noteid="NT0041511E" href="/avalikteave.nsf/documents/NT0041511E?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00999-1</field>
+<field name="documenttype">Esitatud istungi materjalid</field>
+<field name="subject"></field>
+</document>
+<document noteid="NT00415122" href="/avalikteave.nsf/documents/NT00415122?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00998-1</field>
+<field name="documenttype">Kiri</field>
+<field name="subject">Elanikkonnakaitse e-koolitus</field>
+</document>
+<document noteid="NT00415126" href="/avalikteave.nsf/documents/NT00415126?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00997-2</field>
+<field name="documenttype">E-post</field>
+<field name="subject"></field>
+</document>
+<document noteid="NT0041512A" href="/avalikteave.nsf/documents/NT0041512A?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00997-1</field>
+<field name="documenttype">Kiri</field>
+<field name="subject"></field>
+</document>
+<document noteid="NT0041512E" href="/avalikteave.nsf/documents/NT0041512E?open">
+<field name="date">13.05.2026</field>
+<field name="docid">25-01887-9</field>
+<field name="documenttype">Kiri</field>
+<field name="subject">Teade kohtulahendi teatavaks tegemisest -  põhiseaduslikkuse järelevalve asi nr 5-25-49 (Riigikohtu üldkogu)</field>
+</document>
+<document noteid="NT00415132" href="/avalikteave.nsf/documents/NT00415132?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00696-3</field>
+<field name="documenttype">Esitatud istungi materjalid</field>
+<field name="subject">Maksukorralduse seaduse, rahapesu ja terrorismi rahastamise  tõkestamise seaduse ning tsiviilkohtumenetluse seadustiku ja  täitemenetluse seadustiku rakendamise seaduse muutmise seadus</field>
+</document>
+<document noteid="NT00415136" href="/avalikteave.nsf/documents/NT00415136?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00996-1</field>
+<field name="documenttype">Esitatud istungi materjalid</field>
+<field name="subject">Vabariigi Valitsuse 22. detsembri 2011. a määruse nr 171 „Strateegiliste kaupade nimekiri“ muutmine</field>
+</document>
+<document noteid="NT0041513A" href="/avalikteave.nsf/documents/NT0041513A?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00991-1</field>
+<field name="documenttype">Eelnõu kabinetinõupidamisele</field>
+<field name="subject"></field>
+</document>
+<document noteid="NT0041513E" href="/avalikteave.nsf/documents/NT0041513E?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00995-1</field>
+<field name="documenttype">Kiri</field>
+<field name="subject"></field>
+</document>
+<document noteid="NT00415142" href="/avalikteave.nsf/documents/NT00415142?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00993-1</field>
+<field name="documenttype">Esitatud istungi materjalid</field>
+<field name="subject">Kindlustusandja kriisi ennetamise ja lahendamise seadus</field>
+</document>
+<document noteid="NT00415146" href="/avalikteave.nsf/documents/NT00415146?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00992-1</field>
+<field name="documenttype">Esitatud istungi materjalid</field>
+<field name="subject"></field>
+</document>
+<document noteid="NT0041514A" href="/avalikteave.nsf/documents/NT0041514A?open">
+<field name="date">13.05.2026</field>
+<field name="docid">26-00990-1</field>
+<field name="documenttype">Esitatud istungi materjalid</field>
+<field name="subject"></field>
+</document>
+<document noteid="NT0041518A" href="/avalikteave.nsf/documents/NT0041518A?open">
+<field name="date">13.05.2026</field>
+<field name="docid">PM2645K</field>
+<field name="documenttype">Õigusakt</field>
+<field name="subject">Vabariigi Valitsuse 14. mai 2026. a istungi päevakorra kinnitamine</field>
+</document>
+</entries>

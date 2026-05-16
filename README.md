@@ -19,8 +19,7 @@ Fetchers exist for the following registries:
 - **RMK** (`adr.rmk.ee`) — Riigimetsa Majandamise Keskus.
 - **Riigikantselei** (`dhs.riigikantselei.ee`).
 - **Riigikogu** (`riigikogu.ee/tegevus/dokumendiregister`).
-- **Tallinn** (`dhs.tallinn.ee/atp`) — fetcher implemented but commented out
-  in `OrgSeeder`; enable manually if needed.
+- **Tallinn** (`dhs.tallinn.ee/atp`).
 
 For each document the application stores metadata (title, type, date,
 counterparties, access restriction, etc.), downloads attached files, and

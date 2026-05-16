@@ -72,6 +72,7 @@ class ApiDocsController extends Controller
                 'name' => ['type' => 'string'],
                 'parent_id' => ['type' => 'integer', 'nullable' => true],
                 'parsed_with' => ['type' => 'string', 'nullable' => true],
+                'url' => ['type' => 'string', 'format' => 'uri', 'nullable' => true, 'description' => 'Public URL of the hosted file (object storage).'],
                 'contents' => ['type' => 'string', 'nullable' => true, 'description' => 'Extracted text content of the file.'],
             ],
         ];

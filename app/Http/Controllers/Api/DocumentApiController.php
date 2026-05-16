@@ -154,6 +154,7 @@ class DocumentApiController extends Controller
                 'name' => $f->name,
                 'parent_id' => $f->parent_id,
                 'parsed_with' => $f->parsed_with,
+                'url' => $f->url,
                 'contents' => $f->contents,
             ])->values(),
         ]);

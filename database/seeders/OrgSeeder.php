@@ -62,12 +62,12 @@ class OrgSeeder extends Seeder
             'fetcher_type' => 'riigikogu',
         ]);
 
-//        Organisation::query()->updateOrCreate([
-//            'registry_base_uri' => 'https://dhs.tallinn.ee/atp/',
-//        ], [
-//            'name' => 'Tallinna linn',
-//            'slug' => 'tallinn',
-//            'fetcher_type' => 'tallinn-atp',
-//        ]);
+        Organisation::query()->updateOrCreate([
+            'registry_base_uri' => 'https://dhs.tallinn.ee/atp/',
+        ], [
+            'name' => 'Tallinna linn',
+            'slug' => 'tallinn',
+            'fetcher_type' => 'tallinn-atp',
+        ]);
     }
 }

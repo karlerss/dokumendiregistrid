@@ -22,11 +22,14 @@ return new class extends Migration {
         });
 
         // drop file table triggers files_ai, files_au, files_ad
+        // Use IF EXISTS because on newer Laravel/SQLite the Schema::table() call above
+        // recreates the files table (to add the FK column), which cascades and drops
+        // the attached triggers automatically.
         \Illuminate\Support\Facades\DB::unprepared(<<<SQLITE
-        drop trigger files_ai;
-        drop trigger files_ad;
-        drop trigger files_au;
-        drop table files_fts;
+        drop trigger if exists files_ai;
+        drop trigger if exists files_ad;
+        drop trigger if exists files_au;
+        drop table if exists files_fts;
         SQLITE
         );
 

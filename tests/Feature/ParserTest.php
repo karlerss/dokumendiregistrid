@@ -14,6 +14,7 @@ use App\Models\Topic;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ParserTest extends TestCase
@@ -106,5 +107,35 @@ class ParserTest extends TestCase
         $this->assertEquals(2, count($r));
 
         $this->assertEquals('718-000650-1.pdf', $r[1]->name);
+    }
+
+    /**
+     * @test
+     */
+    public function msg_parse_handles_missing_message_html(): void
+    {
+        Storage::fake('r2');
+
+        $parser = new class (base_path('tests/__fixtures/Vastus2.msg')) extends MsgParser {
+            protected function runExtractor(string $msgPath, string $outDir): void
+            {
+                // Simulate extract_msg producing the output directory (with
+                // an attachment) but no message.html — observed in the wild
+                // for some .msg files where extract_msg fails to write the
+                // HTML body.
+                $dir = $outDir . '/Lisa 1. Hinnapäring';
+                mkdir($dir, 0777, true);
+                file_put_contents($dir . '/attachment.txt', 'hello attachment');
+            }
+        };
+
+        $result = $parser->parse();
+
+        $this->assertCount(2, $result);
+        $this->assertEquals('Vastus2.msg', $result[0]->name);
+        $this->assertEquals('', $result[0]->html);
+        $this->assertNull($result[0]->contents);
+        $this->assertEquals('attachment.txt', $result[1]->name);
+        $this->assertEquals($result[0]->id, $result[1]->parent_id);
     }
 }

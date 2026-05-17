@@ -13,7 +13,7 @@ class MsgParser extends BaseParser
     {
         $fs = new Filesystem();
 
-        $outDir = storage_path('temp/files_' . now());
+        $outDir = storage_path('temp/files_' . Str::random(10));
         $fs->ensureDirectoryExists($outDir);
 
         $this->runExtractor($this->path, $outDir);

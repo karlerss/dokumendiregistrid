@@ -3,6 +3,7 @@
 namespace App\Lib\Parser;
 
 use App\Models\File;
+use Illuminate\Support\Str;
 
 class PdfParser extends BaseParser
 {
@@ -23,12 +24,13 @@ class PdfParser extends BaseParser
 
     public function getTextWithPdfbox(string $path)
     {
-        [$path, $binary, $redirectStdErr] = $this->getCommandParts($path);
+        $outFile = storage_path('temp/pdfbox_' . Str::random(10) . '.txt');
 
-        $outFile = storage_path('temp/pdfbox_' . now()->timestamp . '.txt');
-        $outFileArg = escapeshellarg($outFile);
+        $this->runPdfboxText($path, $outFile);
 
-        $res = shell_exec("LANG=C.UTF-8 java -jar $binary export:text -i=$path$redirectStdErr -o=$outFileArg");
+        if (!file_exists($outFile)) {
+            return null;
+        }
 
         $contents = file_get_contents($outFile);
 
@@ -39,11 +41,28 @@ class PdfParser extends BaseParser
 
     public function getHtmlWithPdfbox(string $path)
     {
-        [$path, $binary, $redirectStdErr] = $this->getCommandParts($path);
+        $out = $this->runPdfboxHtml($path);
 
-        $out = shell_exec("LANG=C.UTF-8 java -jar $binary export:text -html -console -i=$path$redirectStdErr");
+        if ($out === null || $out === false) {
+            return '';
+        }
 
         return $this->clean($out);
+    }
+
+    protected function runPdfboxText(string $path, string $outFile): void
+    {
+        [$path, $binary, $redirectStdErr] = $this->getCommandParts($path);
+        $outFileArg = escapeshellarg($outFile);
+
+        shell_exec("LANG=C.UTF-8 java -jar $binary export:text -i=$path$redirectStdErr -o=$outFileArg");
+    }
+
+    protected function runPdfboxHtml(string $path): ?string
+    {
+        [$path, $binary, $redirectStdErr] = $this->getCommandParts($path);
+
+        return shell_exec("LANG=C.UTF-8 java -jar $binary export:text -html -console -i=$path$redirectStdErr");
     }
 
     private function clean(string $text): string

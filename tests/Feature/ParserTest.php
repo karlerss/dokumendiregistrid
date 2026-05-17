@@ -7,6 +7,7 @@ use App\Lib\Parser\AsiceParser;
 use App\Lib\Parser\DirParser;
 use App\Lib\Parser\EmlParser;
 use App\Lib\Parser\MsgParser;
+use App\Lib\Parser\PdfParser;
 use App\Models\Document;
 use App\Models\File;
 use App\Models\Organisation;
@@ -137,5 +138,33 @@ class ParserTest extends TestCase
         $this->assertNull($result[0]->contents);
         $this->assertEquals('attachment.txt', $result[1]->name);
         $this->assertEquals($result[0]->id, $result[1]->parent_id);
+    }
+
+    /**
+     * @test
+     */
+    public function pdf_parse_handles_pdfbox_failure(): void
+    {
+        Storage::fake('r2');
+
+        $parser = new class (base_path('tests/__fixtures/50k.asice')) extends PdfParser {
+            protected function runPdfboxText(string $path, string $outFile): void
+            {
+                // Simulate pdfbox failing to produce the output file
+                // (e.g. corrupted or unsupported PDF).
+            }
+
+            protected function runPdfboxHtml(string $path): ?string
+            {
+                return null;
+            }
+        };
+
+        $result = $parser->parse();
+
+        $this->assertCount(1, $result);
+        $this->assertEquals('50k.asice', $result[0]->name);
+        $this->assertNull($result[0]->contents);
+        $this->assertEquals('', $result[0]->html);
     }
 }

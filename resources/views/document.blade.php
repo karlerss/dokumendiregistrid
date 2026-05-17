@@ -212,7 +212,9 @@
                                                 @break
                                             @case(\App\Lib\Parser\DocxParser::class)
                                                 <iframe
-                                                    src="https://view.officeapps.live.com/op/view.aspx?src={!! urlencode($file->url) !!}"
+                                                    src="about:blank"
+                                                    data-office-src="https://view.officeapps.live.com/op/view.aspx?src={!! urlencode($file->url) !!}"
+                                                    class="office-iframe"
                                                     style="width: 100%; height: 90vh"></iframe>
                                                 @break
                                             @case(\App\Lib\Parser\EmlParser::class)
@@ -229,7 +231,9 @@
                                                     <img src="{{$file->url}}" alt="{{$file->name}}">
                                                 @elseif($file->getExtension() === 'xlsx')
                                                     <iframe
-                                                        src="https://view.officeapps.live.com/op/view.aspx?src={!! urlencode($file->url) !!}"
+                                                        src="about:blank"
+                                                        data-office-src="https://view.officeapps.live.com/op/view.aspx?src={!! urlencode($file->url) !!}"
+                                                        class="office-iframe"
                                                         style="width: 100%; height: 90vh"></iframe>
                                                 @else
                                                     <pre style="white-space: pre-wrap;">{{$file->contents}}</pre>
@@ -285,9 +289,32 @@
 
 @section('script')
     <script>
+        function setOfficeIframe(iframe, url) {
+            try {
+                iframe.contentWindow.location.replace(url);
+            } catch (e) {
+                iframe.src = url;
+            }
+        }
+
         function showFile(id) {
-            document.querySelectorAll('[data-file-id]').forEach((el) => el.classList.add('hidden'));
-            document.querySelector('[data-file-id="' + id + '"]').classList.remove('hidden');
+            document.querySelectorAll('[data-file-id]').forEach((el) => {
+                el.classList.add('hidden');
+                el.querySelectorAll('iframe.office-iframe').forEach((iframe) => {
+                    if (iframe.dataset.officeLoaded === '1') {
+                        setOfficeIframe(iframe, 'about:blank');
+                        iframe.dataset.officeLoaded = '0';
+                    }
+                });
+            });
+            const target = document.querySelector('[data-file-id="' + id + '"]');
+            target.classList.remove('hidden');
+            target.querySelectorAll('iframe.office-iframe').forEach((iframe) => {
+                if (iframe.dataset.officeLoaded !== '1') {
+                    setOfficeIframe(iframe, iframe.dataset.officeSrc);
+                    iframe.dataset.officeLoaded = '1';
+                }
+            });
             document.querySelectorAll('[data-file-list-id]').forEach((el) => el.classList.remove('font-bold'));
             document.querySelector('[data-file-list-id="' + id + '"]').classList.add('font-bold');
         }

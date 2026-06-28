@@ -51,6 +51,11 @@ class Document extends Model
         return $this->belongsTo(Topic::class);
     }
 
+    public function takedownRequests()
+    {
+        return $this->hasMany(TakedownRequest::class);
+    }
+
     public function fullDelete()
     {
         $this->deleteFiles();

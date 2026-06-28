@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\SitemapsController;
+use App\Http\Controllers\TakedownController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [MainController::class, 'index']);
@@ -20,6 +21,13 @@ Route::delete('/dokumendid/{document}', [MainController::class, 'destroy'])->nam
 Route::post('/dokumendid/{document}/reindex', [MainController::class, 'reindex'])->name('document.reindex');
 Route::delete('/files/{file}', [MainController::class, 'deleteFile'])->name('file.destroy');
 Route::post('/files/{file}/replace', [MainController::class, 'replaceFile'])->name('file.replace');
+
+Route::post('/dokumendid/{document}/eemaldamistaotlus', [TakedownController::class, 'store'])->name('takedowns.store');
+
+Route::get('/haldus/eemaldamistaotlused', [TakedownController::class, 'index'])->name('takedowns.index');
+Route::get('/haldus/eemaldamistaotlused/{takedownRequest}', [TakedownController::class, 'show'])->name('takedowns.show');
+Route::post('/haldus/eemaldamistaotlused/{takedownRequest}/rahulda', [TakedownController::class, 'accept'])->name('takedowns.accept');
+Route::post('/haldus/eemaldamistaotlused/{takedownRequest}/keeldu', [TakedownController::class, 'deny'])->name('takedowns.deny');
 
 Route::get('login', [MainController::class, 'login'])->name('login');
 Route::post('login', [MainController::class, 'login']);

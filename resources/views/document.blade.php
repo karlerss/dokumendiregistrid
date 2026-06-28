@@ -12,6 +12,11 @@
     <div class="px-4">
         <div class="container mx-auto bg-white mb-8">
             <h1 class="text-3xl mb-4 font-bold">{{ $document->title }}</h1>
+            @if(session('success'))
+                <div class="mb-4">
+                    <x-bladewind.alert type="success">{{ session('success') }}</x-bladewind.alert>
+                </div>
+            @endif
             @if(session('is_admin'))
                 <div class="flex">
                     <form action="{{route('document.destroy', $document)}}" method="post" class="mr-2">
@@ -125,6 +130,68 @@
                     @endif
                 </div>
             </div>
+        </div>
+
+        <div class="container mx-auto bg-white mb-8">
+            <x-bladewind.accordion>
+                <x-bladewind.accordion.item title="Esita dokumendi eemaldamise taotlus">
+                    <p class="text-sm text-gray-500 mb-4">
+                        Kui see dokument sisaldab Teie isikuandmeid või rikub Teie õigusi, saate esitada
+                        eemaldamise taotluse. Vaatame taotluse üle ja teavitame Teid otsusest e-posti teel.
+                    </p>
+
+                    @if($errors->any())
+                        <div class="mb-4">
+                            <x-bladewind.alert type="error">
+                                <ul class="list-disc list-inside">
+                                    @foreach($errors->all() as $error)
+                                        <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            </x-bladewind.alert>
+                        </div>
+                    @endif
+
+                    <form action="{{ route('takedowns.store', $document) }}" method="post" class="max-w-2xl">
+                        @csrf
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="md:col-span-1 col-span-2">
+                                <x-bladewind.input
+                                    name="author_name"
+                                    label="Teie nimi"
+                                    required="true"
+                                    selected_value="{{ old('author_name') }}"/>
+                            </div>
+                            <div class="md:col-span-1 col-span-2">
+                                <x-bladewind.input
+                                    name="author_email"
+                                    type="email"
+                                    label="Teie e-post"
+                                    required="true"
+                                    selected_value="{{ old('author_email') }}"/>
+                            </div>
+                        </div>
+                        <x-bladewind.select
+                            name="legal_basis"
+                            required="true"
+                            placeholder="Õiguslik alus"
+                            data="manual"
+                            selected_value="{{ old('legal_basis') }}">
+                            @foreach(\App\Models\TakedownRequest::LEGAL_BASES as $basis)
+                                <x-bladewind.select.item :label="$basis" :value="$basis"/>
+                            @endforeach
+                        </x-bladewind.select>
+                        <x-bladewind.textarea
+                            name="objection_note"
+                            label="Selgitus"
+                            rows="4"
+                            selected_value="{{ old('objection_note') }}"></x-bladewind.textarea>
+                        <x-bladewind.button can_submit="true">
+                            Esita taotlus
+                        </x-bladewind.button>
+                    </form>
+                </x-bladewind.accordion.item>
+            </x-bladewind.accordion>
         </div>
 
         <hr class="mb-4">

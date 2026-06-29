@@ -98,7 +98,7 @@
                                 <a href="#"
                                    class="text-blue-500 hover:underline cursor-pointer"
                                    onclick="showModal('takedown-request')">
-                                    Taotle dokumendi eemaldamist
+                                    Taotle dokumendi eemaldamist või parandamist
                                 </a>
                             </td>
                         </tr>

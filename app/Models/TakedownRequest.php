@@ -25,8 +25,7 @@ class TakedownRequest extends Model
     ];
 
     public const LEGAL_BASES = [
-        'IKÜM (GDPR) Art 21.',
-        'EKTÄKS § 5',
+        'IKÜM (GDPR) Art 21 (vastuväide)',
         'Muu (lisa selgitusse)',
     ];
 

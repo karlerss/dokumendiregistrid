@@ -4,7 +4,7 @@
 
 @section('content')
     <div class="px-4">
-        <div class="container mx-auto">
+        <div class="w-full">
             <h1 class="text-3xl mb-4 font-bold">Eemaldamistaotlused</h1>
 
             @if(session('success'))
@@ -20,6 +20,8 @@
                     <th>Õiguslik alus</th>
                     <th>Staatus</th>
                     <th>Esitatud</th>
+                    <th>Lahendatud</th>
+                    <th>Vanus</th>
                     <th></th>
                 </x-slot>
                 @forelse($takedownRequests as $takedownRequest)
@@ -31,10 +33,6 @@
                                     {{ $takedownRequest->document->title }}
                                 </a>
                             @elseif($takedownRequest->original_document_url)
-                                <a class="underline text-gray-900" target="_blank"
-                                   href="{{ $takedownRequest->original_document_url }}">
-                                    {{ $takedownRequest->original_document_url }}
-                                </a>
                                 <span class="text-xs text-gray-400 block">(dokument eemaldatud)</span>
                             @else
                                 <span class="text-gray-400">—</span>
@@ -50,6 +48,14 @@
                                              :color="$takedownRequest->statusColor()"/>
                         </td>
                         <td style="white-space: nowrap;">{{ $takedownRequest->created_at->format('d.m.Y H:i') }}</td>
+                        <td style="white-space: nowrap;">{{ $takedownRequest->resolved_at?->format('d.m.Y H:i') ?: '—' }}</td>
+                        <td style="white-space: nowrap;">
+                            @unless($takedownRequest->isResolved())
+                                {{ (int) $takedownRequest->created_at->diffInDays(now()) }} päeva
+                            @else
+                                —
+                            @endunless
+                        </td>
                         <td>
                             <div class="flex gap-2 items-center">
                                 <x-bladewind.button size="tiny" type="primary" tag="a"
@@ -74,7 +80,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="text-center text-gray-400 py-6">Eemaldamistaotlusi ei ole.</td>
+                        <td colspan="8" class="text-center text-gray-400 py-6">Eemaldamistaotlusi ei ole.</td>
                     </tr>
                 @endforelse
             </x-bladewind.table>

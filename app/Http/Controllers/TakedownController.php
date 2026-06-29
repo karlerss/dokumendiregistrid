@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\TakedownAcceptedMail;
 use App\Mail\TakedownAcceptedRemovedMail;
 use App\Mail\TakedownDeniedMail;
+use App\Mail\TakedownVerifiedAdminMail;
 use App\Mail\TakedownVerificationMail;
 use App\Models\Document;
 use App\Models\TakedownRequest;
@@ -71,6 +72,7 @@ class TakedownController extends Controller
         }
 
         $takedownRequest->markVerified();
+        $this->notifyAdminAboutVerifiedRequest($takedownRequest);
 
         return redirect()->route('takedowns.track', $takedownRequest)
             ->with('success', 'Teie e-posti aadress on kinnitatud. Taotlus on nüüd ootel ja vaatame selle üle.');
@@ -105,6 +107,17 @@ class TakedownController extends Controller
 
         Mail::to($takedownRequest->author_email)
             ->send(new TakedownVerificationMail($takedownRequest, $code));
+    }
+
+    private function notifyAdminAboutVerifiedRequest(TakedownRequest $takedownRequest): void
+    {
+        $adminEmail = config('mail.admin.address');
+
+        if (blank($adminEmail)) {
+            return;
+        }
+
+        Mail::to($adminEmail)->send(new TakedownVerifiedAdminMail($takedownRequest));
     }
 
     private function resendRateLimitKey(TakedownRequest $takedownRequest): string

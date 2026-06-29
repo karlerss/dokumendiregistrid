@@ -55,6 +55,15 @@
                     riigiametnikele. Kõigi nende inimeste aeg on väärtuslik ja see keskkond
                     peaks neil hulga aega kokku hoidma.
                 </p>
+                <h2 class="text-xl font-bold mb-4">Soovin dokumendi eemaldamist või parandamist</h2>
+                <p class="mb-4">Tee nii:</p>
+                <ol>
+                    <li>Leia dokument <a href="/" class="underline">otsingu</a> abil</li>
+                    <li>Ava dokument</li>
+                    <li>Vajuta nupule "Taotle dokumendi eemaldamist või parandamist"</li>
+                    <li>Täida väljad</li>
+                    <li>Taotlus vaadatakse läbi 30 päeva jooksul</li>
+                </ol>
                 <h2 class="text-xl font-bold mb-4">Kontakt ja autor</h2>
                 <p class="mb-4">
                     <a href="https://www.linkedin.com/in/karl-sander-erss/"

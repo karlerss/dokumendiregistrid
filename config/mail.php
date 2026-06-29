@@ -100,4 +100,13 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    'reply_to' => [
+        'address' => env('ADMIN_EMAIL'),
+        'name' => env('MAIL_FROM_NAME', 'Example'),
+    ],
+
+    'admin' => [
+        'address' => env('ADMIN_EMAIL'),
+    ],
+
 ];

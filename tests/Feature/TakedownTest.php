@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\TakedownAcceptedMail;
 use App\Mail\TakedownAcceptedRemovedMail;
 use App\Mail\TakedownDeniedMail;
+use App\Mail\TakedownVerifiedAdminMail;
 use App\Mail\TakedownVerificationMail;
 use App\Models\Document;
 use App\Models\Organisation;
@@ -127,6 +128,57 @@ class TakedownTest extends TestCase
     }
 
     /** @test */
+    public function verifying_sends_admin_notification_when_admin_email_is_configured(): void
+    {
+        Mail::fake();
+        config(['mail.admin.address' => 'admin@example.com']);
+
+        $document = $this->makeDocument();
+        $this->post(route('takedowns.store', $document), $this->storeData());
+
+        $request = TakedownRequest::first();
+
+        $this->post(route('takedowns.verify', $request), [
+            'verification_code' => $request->verification_code,
+        ])->assertRedirect(route('takedowns.track', $request));
+
+        Mail::assertSent(
+            TakedownVerifiedAdminMail::class,
+            fn (TakedownVerifiedAdminMail $mail) => $mail->hasTo('admin@example.com')
+                && $mail->takedownRequest->is($request)
+        );
+    }
+
+    /** @test */
+    public function outgoing_mail_uses_admin_reply_to(): void
+    {
+        config([
+            'mail.default' => 'array',
+            'mail.reply_to.address' => 'admin@example.com',
+            'mail.reply_to.name' => 'Admin',
+        ]);
+        Mail::purge('array');
+
+        $document = $this->makeDocument();
+        $request = $document->takedownRequests()->create($this->storeData([
+            'status' => TakedownRequest::STATUS_PENDING,
+        ]));
+
+        Mail::to('recipient@example.com')->send(new TakedownVerificationMail($request, '123456'));
+
+        $message = Mail::mailer('array')
+            ->getSymfonyTransport()
+            ->messages()
+            ->first()
+            ->getOriginalMessage();
+        $replyTo = $message->getReplyTo();
+
+        $this->assertCount(1, $replyTo);
+        $this->assertSame('admin@example.com', $replyTo[0]->getAddress());
+        $this->assertSame('Admin', $replyTo[0]->getName());
+    }
+
+    /** @test */
     public function verifying_with_wrong_code_keeps_request_unverified(): void
     {
         $document = $this->makeDocument();
@@ -209,6 +261,35 @@ class TakedownTest extends TestCase
         $this->withSession(['is_admin' => true])
             ->get(route('takedowns.index'))
             ->assertStatus(200);
+    }
+
+    /** @test */
+    public function admin_index_shows_resolution_date_and_unresolved_age(): void
+    {
+        $now = \Illuminate\Support\Carbon::parse('2026-06-29 12:00:00');
+        $this->travelTo($now);
+
+        $document = $this->makeDocument();
+        $document->takedownRequests()->create($this->storeData([
+            'status' => TakedownRequest::STATUS_PENDING,
+            'created_at' => $now->copy()->subDays(5),
+            'updated_at' => $now->copy()->subDays(5),
+        ]));
+        $document->takedownRequests()->create($this->storeData([
+            'author_email' => 'mari@example.com',
+            'status' => TakedownRequest::STATUS_ACCEPTED,
+            'resolved_at' => $now->copy()->subDay()->setTime(9, 15),
+            'created_at' => $now->copy()->subDays(10),
+            'updated_at' => $now->copy()->subDay(),
+        ]));
+
+        $this->withSession(['is_admin' => true])
+            ->get(route('takedowns.index'))
+            ->assertStatus(200)
+            ->assertSee('Lahendatud')
+            ->assertSee('Vanus')
+            ->assertSee('28.06.2026 09:15')
+            ->assertSee('5 päeva');
     }
 
     /** @test */

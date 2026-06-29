@@ -1,6 +1,40 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Tell Tailwind v4 to scan BladewindUI's vendor blade + js files so all
+   component classes (including those referenced only in JS) are generated. */
+@source "../../vendor/mkocansey/bladewind/**/*.blade.php";
+@source "../../public/vendor/bladewind/js/*.js";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    --color-dark-50: #f0fdf4;
+    --color-dark-100: #dcfce7;
+    --color-dark-200: #bbf7d0;
+    --color-dark-300: #86efac;
+    --color-dark-400: #4ade80;
+    --color-dark-500: #22c55e;
+    --color-dark-600: #16a34a;
+    --color-dark-700: #15803d;
+    --color-dark-800: #166534;
+    --color-dark-900: #14532d;
+    --color-dark-950: #052e16;
+}
+
+/* Tailwind v4 emits `.inline-block` after `.hidden` in the utilities layer, so the
+   `inline-block` that icon.blade.php stamps on every SVG defeats the `hidden` class
+   Bladewind's JS toggles to show/hide icons (select arrows, reset button, etc.).
+   Re-assert hidden for icons so show/hide works as it did under Tailwind v3. */
+svg.inline-block.hidden {
+    display: none;
+}
+
+/* Match the small select trigger height to the inputs beside it by shrinking the
+   oversized dropdown chevron from 24px to 20px (the inputs' line height). */
+.bw-select .clickable svg.opener {
+    width: 1.25rem;
+    height: 1.25rem;
+}
 
 .file-tree-item {
     position: relative;

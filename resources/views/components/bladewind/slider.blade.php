@@ -1,19 +1,23 @@
+{{-- format-ignore-start --}}
 @props([
-    'name' => 'bw_'.uniqid(),
+    'name' => defaultBladewindName('bw-slider-'),
     'min' => 0,
     'max' => 100,
     'step' => 1,
     'selected' => 0,
-    'max_selected' => '',
+    'maxSelected' => '',
     'color' => 'primary',
-    'show_values' => config('bladewind.slider.show_values', true),
+    'showValues' => config('bladewind.slider.show_values', true),
     'range' => config('bladewind.slider.range', false),
     'class' => '',
+    'nonce' => config('bladewind.script.nonce', null),
+
 ])
 
 @php
-    $show_values = parseBladewindVariable($show_values);
+    $showValues = parseBladewindVariable($showValues);
     $range = parseBladewindVariable($range);
+    $name = parseBladewindName($name);
 
     $step = (is_numeric($step) && $step > 0) ? $step : 1;
     $min = (is_numeric($min) && $min >= 0) ? $min : 0;
@@ -23,6 +27,8 @@
     $selected = ($selected > $max) ? $max : $selected;
     $colour = defaultBladewindColour($color);
 @endphp
+{{-- format-ignore-end --}}
+
 <div class="bw-slider-container w-full relative {{$class}}">
     <input type="range"
            min="{{$min}}"
@@ -34,15 +40,15 @@
         <input type="range"
                min="{{$min}}"
                max="{{$max}}"
-               value="{{$max_selected}}"
+               value="{{$maxSelected}}"
                step="{{$step}}"
                class="bw-slider max-slider-{{$name}} {{$colour}}"/>
     @endif
 
-    <div class="text-center pt-5 text-sm font-semibold @if(!$show_values) hidden @endif">
+    <div class="text-center pt-5 text-sm font-semibold @if(!$showValues) hidden @endif">
         <span class="slider-selection-{{$name}}">{{$selected}}
             @if($range)
-                - {{$max_selected}}
+                - {{$maxSelected}}
             @endif
         </span>
     </div>
@@ -50,35 +56,34 @@
            name="{{$name}}"
            id="{{$name}}"
            class="slider-selection-{{$name}}-input bw-slider-{{$name}}"
-           value="{{$selected}}@if($range),{{$max_selected}}@endif"/>
+           value="{{$selected}}@if($range),{{$maxSelected}}@endif"/>
 </div>
 
-<script>
+<x-bladewind::script :nonce="$nonce">
     const minSlider_{{$name}} = domEl('.min-slider-{{$name}}');
     const maxSlider_{{$name}} = domEl('.max-slider-{{$name}}');
     const sliderValue_{{$name}} = domEl('.slider-selection-{{$name}}');
     const sliderInput_{{$name}} = domEl('.slider-selection-{{$name}}-input');
 
     minSlider_{{$name}}.oninput = function () {
-        if (parseInt(minSlider_{{$name}}.value) > parseInt(maxSlider_{{$name}}.value) - 1) {
-            minSlider_{{$name}}.value = parseInt(maxSlider_{{$name}}.value) - 1;
-        }
-        @if($range)
-            sliderValue_{{$name}}.innerHTML = `${minSlider_{{$name}}.value} - ${maxSlider_{{$name}}.value}`;
+    if (parseInt(minSlider_{{$name}}.value) > parseInt(maxSlider_{{$name}}.value) - 1) {
+    minSlider_{{$name}}.value = parseInt(maxSlider_{{$name}}.value) - 1;
+    }
+    @if($range)
+        sliderValue_{{$name}}.innerHTML = `${minSlider_{{$name}}.value} - ${maxSlider_{{$name}}.value}`;
         sliderInput_{{$name}}.value = `${minSlider_{{$name}}.value},${maxSlider_{{$name}}.value}`;
-        @else
-            sliderValue_{{$name}}.innerHTML = `${minSlider_{{$name}}.value}`;
+    @else
+        sliderValue_{{$name}}.innerHTML = `${minSlider_{{$name}}.value}`;
         sliderInput_{{$name}}.value = `${minSlider_{{$name}}.value}`;
-        @endif
+    @endif
     };
     @if($range)
         maxSlider_{{$name}}.oninput = function () {
         if (parseInt(maxSlider_{{$name}}.value) < parseInt(minSlider_{{$name}}.value) + 1) {
-            maxSlider_{{$name}}.value = parseInt(minSlider_{{$name}}.value) + 1;
+        maxSlider_{{$name}}.value = parseInt(minSlider_{{$name}}.value) + 1;
         }
         sliderValue_{{$name}}.innerHTML = `${minSlider_{{$name}}.value} - ${maxSlider_{{$name}}.value}`;
         sliderInput_{{$name}}.value = `${minSlider_{{$name}}.value},${maxSlider_{{$name}}.value}`;
-    };
+        };
     @endif
-
-</script>
+</x-bladewind::script>

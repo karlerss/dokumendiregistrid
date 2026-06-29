@@ -24,6 +24,10 @@ Route::post('/files/{file}/replace', [MainController::class, 'replaceFile'])->na
 
 Route::post('/dokumendid/{document}/eemaldamistaotlus', [TakedownController::class, 'store'])->name('takedowns.store');
 
+Route::get('/eemaldamistaotlus/{takedownRequest}', [TakedownController::class, 'track'])->name('takedowns.track');
+Route::post('/eemaldamistaotlus/{takedownRequest}/kinnita', [TakedownController::class, 'verify'])->name('takedowns.verify');
+Route::post('/eemaldamistaotlus/{takedownRequest}/saada-uuesti', [TakedownController::class, 'resend'])->name('takedowns.resend');
+
 Route::get('/haldus/eemaldamistaotlused', [TakedownController::class, 'index'])->name('takedowns.index');
 Route::get('/haldus/eemaldamistaotlused/{takedownRequest}', [TakedownController::class, 'show'])->name('takedowns.show');
 Route::post('/haldus/eemaldamistaotlused/{takedownRequest}/rahulda', [TakedownController::class, 'accept'])->name('takedowns.accept');

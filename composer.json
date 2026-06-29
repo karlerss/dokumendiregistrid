@@ -20,7 +20,7 @@
         "laravel/tinker": "^2.9",
         "league/flysystem-aws-s3-v3": "^3.0",
         "mews/purifier": "^3.4",
-        "mkocansey/bladewind": "^2.5",
+        "mkocansey/bladewind": "^4.2",
         "openai-php/client": "^0.8.4",
         "php-mime-mail-parser/php-mime-mail-parser": "^8.0",
         "soundasleep/html2text": "^2.1",

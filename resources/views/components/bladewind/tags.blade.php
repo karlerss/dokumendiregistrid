@@ -1,4 +1,5 @@
-@props([ 
+{{-- format-ignore-start --}}
+@props([
     'color' => config('bladewind.tag.color', 'primary'),
     'shade' => config('bladewind.tag.shade', 'faint'),
     'rounded' => config('bladewind.tag.rounded', false),
@@ -8,10 +9,11 @@
     'tiny' => config('bladewind.tag.tiny', false),
     'outline' => config('bladewind.tag.outline', false),
     'uppercasing' => config('bladewind.tag.uppercasing', true),
-    'selected_value' => '',
-    'error_message' => '',
-    'error_heading' => '',
+    'selectedValue' => '',
+    'errorMessage' => '',
+    'errorHeading' => '',
     'class' => 'space-x-2 space-y-2',
+    'nonce' => config('bladewind.script.nonce', null),
 ])
 @php
     $rounded = parseBladewindVariable($rounded);
@@ -19,18 +21,19 @@
     $tiny = parseBladewindVariable($tiny);
     $max_selection = (!empty($max) && is_numeric($max)) ? $max : 9999999;
 @endphp
+{{-- format-ignore-end --}}
 
 <div class="bw-tags-{{$name}} {{$class}}">
     <x-bladewind::input
             :name="$name"
-            :error_message="$error_message"
-            :error_heading="$error_heading"
+            :error_message="$errorMessage"
+            :error_heading="$errorHeading"
             data-max-selection="{{$max_selection}}"
             type="hidden"
             class="{{ ($required) ? 'required':''}}"/>
     {{ $slot }}
 </div>
 
-@if($selected_value !== '')
-    <script>highlightSelectedTags('{{$selected_value}}', '{{$name}}'); </script>
+@if($selectedValue !== '')
+    <x-bladewind::script :nonce="$nonce">highlightSelectedTags('{{$selectedValue}}', '{{$name}}');</x-bladewind::script>
 @endif

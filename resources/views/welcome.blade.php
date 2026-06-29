@@ -36,12 +36,14 @@
                     <div class="grid gap-2 grid-cols-3">
                         <x-bladewind.datepicker
                             name="date_start"
+                            label=""
                             placeholder="Alates"
                             size="small"
                             :default_date="request('date_start')"
                         ></x-bladewind.datepicker>
                         <x-bladewind.datepicker
                             name="date_end"
+                            label=""
                             placeholder="Kuni"
                             size="small"
                             :default_date="request('date_end')"

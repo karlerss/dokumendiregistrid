@@ -1,45 +1,65 @@
+{{-- format-ignore-start --}}
 @props([
-    'hover_effect' => config('bladewind.contact_card.hover_effect', false),
-    'has_shadow' => config('bladewind.contact_card.has_shadow', true),
-    'hasShadow' => true,
+    'hasHover' => config('bladewind.contact_card.has_hover', false),
+    'hasShadow' => config('bladewind.contact_card.has_shadow', true),
+    'hasBorder' => config('bladewind.contact_card.has_border', true),
+    'noPadding' => config('bladewind.contact_card.no_padding', false),
+    'compact' => config('bladewind.contact_card.compact', true),
+    //should lazy load images?
+    'lazy' => config('bladewind.contact_card.lazy', true),
     'image' => asset('vendor/bladewind/images/avatar.png'),
+    'centered' => config('bladewind.contact_card.centered', false),
     'name' => null,
     'mobile' => null,
     'email' => null,
     'department' => null,
     'position' => null,
     'birthday' => null,
-    'class' => '',
-    'has_border' => true,
+    'url' => null,
+    'class' => '!p-5 ',
 ])
 @php
-    $has_shadow = parseBladewindVariable($has_shadow);
-    $hover_effect = parseBladewindVariable($hover_effect);
     $hasShadow = parseBladewindVariable($hasShadow);
-    $has_border = parseBladewindVariable($has_border);
-    if(!$hasShadow) $has_shadow = $hasShadow;
+    $hasHover = parseBladewindVariable($hasHover);
+    $hasBorder = parseBladewindVariable($hasBorder);
+    $noPadding = parseBladewindVariable($noPadding);
+    $compact = parseBladewindVariable($compact);
+    $centered = parseBladewindVariable($centered);
+    $lazy = parseBladewindVariable($lazy);
+    $centered_class = $centered ? 'text-center' : '';
 @endphp
+{{-- format-ignore-end --}}
+
 <x-bladewind::card
-        class="!p-5 {{$class}}"
-        :hover_effect="$hover_effect"
-        :has_shadow="$has_shadow"
-        :has_border="$has_border"
-        :is_contact_card="true"
-        :compact="true">
+        class="{{$class}}"
+        has_hover="{{$hasHover}}"
+        has_shadow="{{$hasShadow}}"
+        has_border="{{$hasBorder}}"
+        no_padding="{{$noPadding}}"
+        url="{{$url}}"
+        is_contact_card="true"
+        compact="{{$compact}}">
     <div class="flex items-start">
-        <div class="-mt-1 pr-2">
-            <x-bladewind::avatar size="big" image="{{ $image }}"/>
-        </div>
+        @if(!$centered)
+            <div class="-mt-1 pr-2">
+                <x-bladewind::avatar size="big" image="{{ $image }}"/>
+            </div>
+        @endif
         <div class="grow pl-3 dark:text-dark-300">
-            <div class="text-lg font-semibold dark:text-dark-300 text-slate-600">{{ $name }}</div>
-            <div class="text-sm pb-2">
+            @if($centered)
+                <div class="{{$centered_class}} pb-3.5">
+                    <x-bladewind::avatar size="omg" image="{{ $image }}"/>
+                </div>
+            @endif
+            <div class="font-semibold dark:text-dark-300 text-slate-600 {{$centered ? $centered_class.' text-xl' : ' text-lg'}}">{{ $name }}</div>
+            <div class="text-sm pb-2 {{$centered_class}}">
                 {{ $department }}
                 @if($department && $position)
                     <x-bladewind::icon name="chevron-right" class="!h-3 !w-3 inline-block"/>
                 @endif
                 {!! $position !!}
             </div>
-            <div class="space-y-1">
+            <div class="space-y-1 {{$centered_class}}">
                 @if($mobile)
                     <div class="text-sm mb-1">
                         <x-bladewind::icon

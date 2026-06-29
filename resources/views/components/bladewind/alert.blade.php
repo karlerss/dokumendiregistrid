@@ -1,26 +1,12 @@
-@php
-    /*
-   |----------------------------------------------------------------------------
-   | ALERT COMPONENT (https://bladewindui.com/component/alert
-   |----------------------------------------------------------------------------
-   |
-   | Display inline alerts in four prebuilt colours and additional colours.
-   | You can dismiss the alerts and display icons or avatars in the alert.
-   |
-    * */
-@endphp
+{{-- format-ignore-start --}}
 @props([
    // error, warning, success, info
    'type' => 'info',
    // shades of the alert faint, dark
    'shade' => config('bladewind.alert.shade', 'faint'),
    // should the alert type icon be shown
-   'show_icon' => config('bladewind.alert.show_icon', true),
-   // for backward compatibility with laravel 8
    'showIcon'  => config('bladewind.alert.show_icon', true),
    // should the close icon be shown?
-   'show_close_icon' => true,
-   // for backward compatibility with laravel 8
    'showCloseIcon' => true,
    // additional css classes to add
    'class' => '',
@@ -29,24 +15,20 @@
    // any Heroicons icon to use
    'icon' => '',
    // additional css to apply to $icon
-   'icon_avatar_css' => '',
+   'iconAvatarCss' => '',
    // use avatar in place of an icon
    'avatar' => '',
    // size of the avatar
    // available sizes are: tiny | small | medium | regular | big | huge | omg
    'size' => config('bladewind.alert.size', 'tiny'),
    // display a ring around the avatar
-   'show_ring' => config('bladewind.alert.show_ring', false),
+   'showRing' => config('bladewind.alert.show_ring', false),
 ])
 @php
     // reset variables for Laravel 8 support
-    $show_icon = parseBladewindVariable($show_icon);
     $showIcon = parseBladewindVariable($showIcon);
-    $show_close_icon = parseBladewindVariable($show_close_icon);
     $showCloseIcon = parseBladewindVariable($showCloseIcon);
 
-    if(!$showIcon) $show_icon = $showIcon;
-    if(!$showCloseIcon) $show_close_icon = $showCloseIcon;
     $close_icon_css =  ($shade == 'dark') ?
         (($color =='transparent') ? 'text-slate-400 hover:text-slate-700 dark:text-slate-200' :
         'text-slate-100 hover:text-slate-500')  : 'text-slate-500 dark:text-slate-200';
@@ -84,15 +66,16 @@
         ]
     ];
 @endphp
+{{-- format-ignore-end --}}
 
 <div class="w-full bw-alert animate__animated animate__fadeIn rounded-md flex p-3  {{$colours[$shade] }} {{ $class }}">
-    @if($show_icon)
+    @if($showIcon)
         <div class="pt-[1px]">
             @if($icon !== '')
-                <x-bladewind::icon :name="$icon" class="-mt-1 {{ $icon_avatar_css}}"/>
+                <x-bladewind::icon :name="$icon" class="-mt-1 {{ $iconAvatarCss}}"/>
             @elseif($avatar !== '')
-                <x-bladewind::avatar :image="$avatar" :show_ring="$show_ring" :size="$size"
-                                     class="{{ $icon_avatar_css}}"/>
+                <x-bladewind::avatar :image="$avatar" :show_ring="$showRing" :size="$size"
+                                     class="{{ $iconAvatarCss}}"/>
             @else
                 <x-bladewind::modal-icon type="{{$type}}"
                                          class="-mt-1 {{ $colours['icon'][$shade] ??'' }}"/>
@@ -100,11 +83,11 @@
         </div>
     @endif
     <div class="grow pl-2 pr-5">{{ $slot }}</div>
-    @if($show_close_icon)
+    @if($showCloseIcon)
         <div class="text-right" onclick="this.parentElement.style.display='none'">
             <x-bladewind::icon
                     name="x-mark"
-                    class="size-[18px] p-[3px] stroke-2 cursor-pointer {{$close_icon_css}} bg-white/20 hover:bg-white/60 rounded-full hover:text-slate-600"/>
+                    class="size-[18px] -mt-[2px] p-[3px] stroke-2 cursor-pointer {{$close_icon_css}} bg-white/20  hover:bg-white/60 rounded-full hover:text-slate-600"/>
         </div>
     @endif
 </div>

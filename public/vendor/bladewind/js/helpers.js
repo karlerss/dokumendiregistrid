@@ -4,9 +4,7 @@
  * ----------------------------------------------
  */
 
-const currentModal = [];
-let elName;
-
+const openModals = [];
 /**
  * Shortcut for document.querySelector.
  * @param {string} element - The element to find in the DOM.
@@ -20,9 +18,7 @@ const domEl = (element) => {
 /**
  * Alias for domEl(element)
  */
-const dom_el = (element) => {
-    return domEl(element);
-};
+const dom_el = domEl;
 
 /**
  * Shortcut for document.querySelectorAll.
@@ -34,22 +30,21 @@ const dom_el = (element) => {
 const domEls = (element, scope = null) => {
     if (scope) {
         if (typeof scope === 'string') {
-            if (scope.indexOf('.') === -1 && scope.indexOf('#') === -1) {
-                console.log(`${scope} needs to contain . or # to target it in the DOM`);
+            if (!scope.includes('.') && !scope.includes('#')) {
+                console.log(`${scope} needs to contain . or # to target a DOM element`);
             }
             scope = document.querySelector(scope);
         }
         return scope.querySelectorAll(element);
     }
-    return (document.querySelectorAll(element).length > 0) ? document.querySelectorAll(element) : false;
+    const elements = document.querySelectorAll(element);
+    return elements.length ? elements : false;
 };
 
 /**
  * Alias for domEls(element)
  */
-const dom_els = (element) => {
-    return domEls(element);
-};
+const dom_els = domEls;
 
 /**
  * Check to see if val is empty
@@ -62,8 +57,17 @@ const isEmpty = (val) => {
 };
 
 /**
+ * Check if this is a number
+ * @param value The value to test
+ * @return {boolean} True if string is empty
+ */
+const isNumeric = (value) => {
+    return !isNaN(value) && !isNaN(parseFloat(value));
+};
+
+/**
  * Hide an element.
- * @param {string} element - The css class (name) of the element to hide.
+ * @param {Element|boolean} element - The css class (name) of the element to hide.
  * @param {boolean} elementIsDomObject - If true, <element> will not be treated as a string but DOM element.
  * @return {void}
  * @see {@link https://bladewindui.com/extra/helper-functions#hide}
@@ -97,14 +101,22 @@ const clearErrors = (obj) => {
     let elName = obj.elName;
     let showErrorInline = obj.showErrorInline;
     if (el.value !== '') {
-        (elParent !== null) ?
-            domEl(`.${elParent} .clickable`).classList.remove('!border-red-400') :
-            el.classList.remove('!border-red-400');
+        if (elParent !== null) {
+            domEl(`.${elParent} .clickable`).classList.remove('!border-red-400');
+        } else {
+            // el.classList.remove('!border-red-400');
+            changeCss(el, 'has-error', 'remove', true);
+            changeCss(el, 'focus:outline-primary-500,focus:border-primary-500', 'add', true);
+        }
         (showErrorInline) ? hide(`.${elName}-inline-error`) : '';
     } else {
-        (elParent !== null) ?
-            domEl(`.${elParent} .clickable`).classList.add('!border-red-400') :
-            el.classList.add('!border-red-400');
+        if (elParent !== null) {
+            domEl(`.${elParent} .clickable`).classList.add('!border-red-400');
+        } else {
+            // el.classList.add('!border-red-400');
+            changeCss(el, 'has-error', 'add', true);
+            changeCss(el, 'focus:outline-primary-500,focus:border-primary-500', 'remove', true);
+        }
         (showErrorInline) ? unhide(`.${elName}-inline-error`) : '';
     }
 };
@@ -152,7 +164,9 @@ const validateForm = (form) => {
     try {
         fieldToValidate = (typeof (form) === 'string') ? domEls(`${form} .required`) : form.querySelectorAll('.required');
         fieldToValidate.forEach((el) => {
-            changeCss(el, '!border-red-500', 'remove', true);
+            // changeCss(el, '!border-red-500', 'remove', true);
+            changeCss(el, 'has-error', 'remove', true);
+            changeCss(el, 'focus:outline-primary-500,focus:border-primary-500', 'add', true);
             if (isEmpty(el.value)) {
                 let elName = el.getAttribute('name');
                 let elParent = el.getAttribute('data-parent');
@@ -160,9 +174,12 @@ const validateForm = (form) => {
                 let showErrorInline = el.getAttribute('data-error-inline');
                 let errorHeading = el.getAttribute('data-error-heading');
 
-                (elParent !== null) ?
-                    changeCss(`.${elParent} .clickable`, '!border-red-400') :
-                    changeCss(el, '!border-red-400', 'add', true);
+                if (elParent !== null) {
+                    changeCss(`.${elParent} .clickable`, '!border-red-400');
+                } else {
+                    changeCss(el, 'has-error', 'add', true);
+                    changeCss(el, 'focus:outline-primary-500,focus:border-primary-500', 'remove', true);
+                }
                 el.focus();
                 if (errorMessage) {
                     (showErrorInline) ? unhide(`.${elName}-inline-error`) :
@@ -198,8 +215,8 @@ const validateForm = (form) => {
  * onkeypress="return isNumberKey(event)"
  */
 const isNumberKey = (event, with_dots = 1) => {
-    let acceptedKeys = (with_dots === 1) ? /[\d\b\\.]/ : /\d\b/;
-    if (!event.key.toString().match(acceptedKeys) && event.keyCode !== 8 && event.keyCode !== 9) {
+    let acceptedKeys = (with_dots === 1) ? /[\d\b\\.,]/ : /\d\b/;
+    if (!event.key.toString().match(acceptedKeys) && event.key !== 'Enter' && event.key !== 'Tab') {
         event.preventDefault();
     }
 };
@@ -277,37 +294,45 @@ const changeCssForDomArray = (elements, css, mode = 'add') => {
  * @return {void}
  * @see {@link https://bladewindui.com/extra/helper-functions#animatecss}
  */
-const animateCSS = (element, animation) =>
-    new Promise((resolve, reject) => {
-        const animationName = `animate__${animation}`;
+const animateCss = (element, animation) => {
+    return new Promise((resolve, reject) => {
+        const animationClass = `animate__${animation}`;
         const node = domEl(element);
-        if (node) {
-            node.classList.remove('hidden');
-            node.classList.add('animate__animated', animationName);
-            document.documentElement.style.setProperty('--animate-duration', '.5s');
+        if (!node) return resolve();
 
-            function handleAnimationEnd(event) {
-                node.classList.remove('animate__animated', animationName);
-                event.stopPropagation();
-                resolve('Animation ended');
-            }
-
-            node.addEventListener('animationend', handleAnimationEnd, {once: true});
-        }
+        node.classList.remove('hidden');
+        node.classList.add('animate__animated', animationClass);
+        document.documentElement.style.setProperty('--animate-duration', '.5s');
+        node.addEventListener('animationend', function handler() {
+            node.classList.remove('animate__animated', animationClass);
+            node.removeEventListener('animationend', handler);
+            resolve();
+        }, {once: true});
     });
+}
+const animateCSS = animateCss;
 /**
  * Display a modal.
  * @param {string} element - The css class (name) of the modal.
+ * @param placeholders
  * @return {void}
  * @see {@link https://bladewindui.com/extra/helper-functions#showmodal}
  */
-const showModal = (element) => {
+const showModal = (element, placeholders = {}) => {
     unhide(`.bw-${element}-modal`);
     document.body.classList.add('overflow-hidden');
     domEl(`.bw-${element}-modal`).focus();
-    let index = (currentModal.length === 0) ? 0 : currentModal.length + 1;
-    animateCSS(`.bw-${element}`, 'zoomIn').then(() => {
-        currentModal[index] = element;
+    let index = (openModals.length === 0) ? 0 : openModals.length + 1;
+    animateCss(`.bw-${element}`, 'zoomIn').then(() => {
+        openModals[index] = element;
+        if (Object.keys(placeholders).length > 0) {
+            const modalBody = domEl(`.bw-${element}-modal .modal-body`);
+            if (!window.originalContent) {
+                window.originalContent = modalBody.innerHTML;
+            }
+            modalBody.innerHTML =
+                window.originalContent.replace(/:([\w]+)/g, (match, key) => placeholders[key] || match);
+        }
     });
 };
 
@@ -317,7 +342,7 @@ const showModal = (element) => {
  * @return {void}
  */
 const trapFocusInModal = (event) => {
-    let modalName = currentModal[(currentModal.length - 1)];
+    let modalName = openModals[(openModals.length - 1)];
     if (modalName !== undefined) {
         const focusableElements = domEls(`.bw-${modalName}-modal input:not([type='hidden']):not([class*='hidden']), .bw-${modalName}-modal button:not([class*="hidden"]),  .bw-${modalName}-modal a:not([class*="hidden"])`);
         const firstElement = focusableElements[0];
@@ -340,11 +365,13 @@ const trapFocusInModal = (event) => {
  * @see {@link https://bladewindui.com/extra/helper-functions#hidemodal}
  */
 const hideModal = (element) => {
-    animateCSS(`.bw-${element}`, 'zoomOut').then(() => {
-        hide(`.bw-${element}-modal`);
-        currentModal.pop();
+    animateCss(`.bw-${element}`, 'zoomOut').then(() => {
+        openModals.pop();
         document.body.classList.remove('overflow-hidden');
         domEl(`.bw-${element}-modal`).removeEventListener('keydown', trapFocusInModal);
+        animateCss(`.bw-${element}-modal`, 'zoomOut').then(() => {
+            hide(`.bw-${element}-modal`);
+        });
     });
 };
 
@@ -732,10 +759,10 @@ const compareDates = (element1, element2, message, inline) => {
  * @param {number} min - The minimum value.
  * @param {number} max - The maximum value.
  * @param {string} element - The input field to validate.
- * @param {boolean} enforce_limits - Ensure input does not exceed maximum or go below minimum
+ * @param {boolean} enforceLimits - Ensure input does not exceed maximum or go below minimum
  * @return {void}
  */
-const checkMinMax = (min, max, element, enforce_limits = false) => {
+const checkMinMax = (min, max, element, enforceLimits = false) => {
     let field = domEl(`.${element}`);
     let minimum = parseInt(min);
     let maximum = parseInt(max);
@@ -743,20 +770,30 @@ const checkMinMax = (min, max, element, enforce_limits = false) => {
     let showErrorInline = field.getAttribute('data-error-inline');
     let errorHeading = field.getAttribute('data-error-heading');
 
-    if (field.value !== '' && ((!isNaN(minimum) && field.value < minimum) || (!isNaN(maximum) && field.value > maximum))) {
-        if (enforce_limits) {
-            if (field.value < minimum) field.value = minimum;
-            if (field.value > maximum) field.value = maximum;
+    const clearErrorMessage = () => {
+        if (errorMessage) hide(`.${element}-inline-error`);
+        changeCss(field, 'has-error', 'remove', true);
+        changeCss(field, 'focus:outline-primary-500,focus:border-primary-500', 'add', true);
+    }
+
+    if (field.value !== '') {
+        if (enforceLimits) {
+            if (!isNaN(minimum) && field.value < minimum) field.value = minimum;
+            if (!isNaN(maximum) && field.value > maximum) field.value = maximum;
         } else {
-            changeCss(field, '!border-red-400', 'add', true);
-            if (errorMessage) {
-                (showErrorInline) ? unhide(`.${element}-inline-error`) :
-                    showNotification(errorHeading, errorMessage, 'error');
+            if (((!isNaN(minimum) && field.value < minimum) || (!isNaN(maximum) && field.value > maximum))) {
+                changeCss(field, 'focus:outline-primary-500,focus:border-primary-500', 'remove', true);
+                changeCss(field, 'has-error', 'add', true);
+                if (errorMessage) {
+                    (showErrorInline) ? unhide(`.${element}-inline-error`) :
+                        showNotification(errorHeading, errorMessage, 'error');
+                }
+            } else {
+                clearErrorMessage();
             }
         }
     } else {
-        if (errorMessage) hide(`.${element}-inline-error`);
-        changeCss(field, '!border-red-400', 'remove', true);
+        clearErrorMessage();
     }
 };
 

@@ -5,13 +5,18 @@ namespace App\Http\Controllers;
 use App\Mail\TakedownAcceptedMail;
 use App\Mail\TakedownAcceptedRemovedMail;
 use App\Mail\TakedownDeniedMail;
+use App\Mail\TakedownVerificationMail;
 use App\Models\Document;
 use App\Models\TakedownRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 
 class TakedownController extends Controller
 {
+    private const RESEND_DECAY_SECONDS = 60;
+
     public function store(Request $request, Document $document)
     {
         $validated = $request->validate([
@@ -21,9 +26,12 @@ class TakedownController extends Controller
             'objection_note' => 'nullable|string|max:5000',
         ]);
 
-        $document->takedownRequests()->create([
-            'original_document_url' => $document->url,
-            'status' => TakedownRequest::STATUS_PENDING,
+        $takedownRequest = $document->takedownRequests()->create([
+            'original_document_url' => route('document', [
+                'document' => $document->id,
+                'slug' => Str::slug($document->title),
+            ]),
+            'status' => TakedownRequest::STATUS_UNVERIFIED,
             'author_name' => $validated['author_name'],
             'author_email' => $validated['author_email'],
             'legal_basis' => $validated['legal_basis'],
@@ -31,7 +39,77 @@ class TakedownController extends Controller
             'ip' => $request->ip(),
         ]);
 
-        return back()->with('success', 'Teie eemaldamistaotlus on edastatud. Vaatame selle üle.');
+        $this->sendVerificationCode($takedownRequest);
+
+        return redirect()->route('takedowns.track', $takedownRequest)
+            ->with('success', 'Saatsime Teie e-posti aadressile kinnituskoodi. Sisestage see allpool, et taotlus kinnitada.');
+    }
+
+    public function track(TakedownRequest $takedownRequest)
+    {
+        $takedownRequest->load('document');
+
+        return view('takedowns.track', [
+            'takedownRequest' => $takedownRequest,
+        ]);
+    }
+
+    public function verify(Request $request, TakedownRequest $takedownRequest)
+    {
+        if ($takedownRequest->status !== TakedownRequest::STATUS_UNVERIFIED) {
+            return redirect()->route('takedowns.track', $takedownRequest);
+        }
+
+        $validated = $request->validate([
+            'verification_code' => 'required|string|size:6',
+        ]);
+
+        if (!$takedownRequest->verificationCodeMatches($validated['verification_code'])) {
+            return back()->withErrors([
+                'verification_code' => 'Kinnituskood on vale või aegunud. Palun proovige uuesti.',
+            ]);
+        }
+
+        $takedownRequest->markVerified();
+
+        return redirect()->route('takedowns.track', $takedownRequest)
+            ->with('success', 'Teie e-posti aadress on kinnitatud. Taotlus on nüüd ootel ja vaatame selle üle.');
+    }
+
+    public function resend(TakedownRequest $takedownRequest)
+    {
+        if ($takedownRequest->status !== TakedownRequest::STATUS_UNVERIFIED) {
+            return redirect()->route('takedowns.track', $takedownRequest);
+        }
+
+        $key = $this->resendRateLimitKey($takedownRequest);
+
+        if (RateLimiter::tooManyAttempts($key, 1)) {
+            $seconds = RateLimiter::availableIn($key);
+
+            return redirect()->route('takedowns.track', $takedownRequest)
+                ->with('error', "Uut koodi saab küsida kord minutis. Palun oodake {$seconds} sekundit.");
+        }
+
+        $this->sendVerificationCode($takedownRequest);
+
+        return redirect()->route('takedowns.track', $takedownRequest)
+            ->with('success', 'Saatsime Teie e-posti aadressile uue kinnituskoodi.');
+    }
+
+    private function sendVerificationCode(TakedownRequest $takedownRequest): void
+    {
+        $code = $takedownRequest->generateVerificationCode();
+
+        RateLimiter::hit($this->resendRateLimitKey($takedownRequest), self::RESEND_DECAY_SECONDS);
+
+        Mail::to($takedownRequest->author_email)
+            ->send(new TakedownVerificationMail($takedownRequest, $code));
+    }
+
+    private function resendRateLimitKey(TakedownRequest $takedownRequest): string
+    {
+        return 'takedown-resend:' . $takedownRequest->id;
     }
 
     public function index()

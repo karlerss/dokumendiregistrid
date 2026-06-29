@@ -52,7 +52,7 @@
                         <td style="white-space: nowrap;">{{ $takedownRequest->created_at->format('d.m.Y H:i') }}</td>
                         <td>
                             <div class="flex gap-2 items-center">
-                                <x-bladewind.button size="tiny" type="secondary" tag="a"
+                                <x-bladewind.button size="tiny" type="primary" tag="a"
                                                     href="{{ route('takedowns.show', $takedownRequest) }}">
                                     Vaata
                                 </x-bladewind.button>
@@ -65,7 +65,6 @@
                                             can_submit="true"
                                             color="red"
                                             onclick="return confirm('Kustutada dokument ja rahuldada taotlus? Esitajale saadetakse teavitus.');">
-                                            <x-bladewind.icon name="trash"/>
                                             Kustuta &amp; rahulda
                                         </x-bladewind.button>
                                     </form>

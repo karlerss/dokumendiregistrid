@@ -187,4 +187,32 @@ class RiigikoguFetcherTest extends TestCase
         );
     }
 
+    public function test_store_downloads_single_public_pdf_with_extension_from_header()
+    {
+        // Doc f0d829e2 has one public file whose link text is the label "Arupärimine"
+        // (no extension). The real filename "AP_1060.pdf" comes from Content-Disposition.
+        $docHtml = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_document_f0d829e2.html');
+        $pdfBody = file_get_contents(__DIR__ . '/../__fixtures/pii_ex/julg.pdf');
+
+        $base = 'https://www.riigikogu.ee/tegevus/dokumendiregister/';
+
+        Storage::fake('r2');
+        Http::fake([
+            $base . 'dokument/f0d829e2-03b2-4f47-b215-49544e895084/' => Http::response($docHtml, 200),
+            'https://www.riigikogu.ee/download/73629e02-e261-407b-9b02-f16e656968b3' => Http::response(
+                $pdfBody,
+                200,
+                [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => "attachment; filename=\"=?UTF-8?Q?AP=5F1060.pdf?=\"; filename*=UTF-8''AP_1060.pdf",
+                ]
+            ),
+        ]);
+
+        $fetcher = new RiigikoguFetcher($this->makeOrg());
+        $document = $fetcher->store('f0d829e2-03b2-4f47-b215-49544e895084');
+
+        $this->assertCount(1, $document->files);
+        $this->assertSame('AP_1060.pdf', $document->files->first()->name);
+    }
 }

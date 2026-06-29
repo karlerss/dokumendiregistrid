@@ -5,7 +5,8 @@
 @section('description', $document->ai_summary ? strip_tags($document->ai_summary) : null)
 
 @section('head')
-    <link rel="canonical" href="{{route('document', ['document' => $document->id, 'slug' => \Illuminate\Support\Str::slug($document->title)])}}" />
+    <link rel="canonical"
+          href="{{route('document', ['document' => $document->id, 'slug' => \Illuminate\Support\Str::slug($document->title)])}}"/>
 @endsection
 
 @section('content')
@@ -91,9 +92,101 @@
                                 >Ava uues aknas</a>
                             </td>
                         </tr>
+                        <tr>
+                            <td></td>
+                            <td>
+                                <a href="#"
+                                   class="text-blue-500 hover:underline cursor-pointer"
+                                   onclick="showModal('takedown-request')">
+                                    Taotle dokumendi eemaldamist
+                                </a>
+                            </td>
+                        </tr>
                     </x-bladewind.table>
                 </div>
                 <div class="md:col-span-1 col-span-2">
+                    <div class="container mx-auto bg-white mb-8">
+                        <x-bladewind.modal
+                            name="takedown-request"
+                            title="Dokumendi eemaldamise taotlus"
+                            size="medium"
+                            show_action_buttons="false">
+                            <div class="text-sm text-gray-500 mt-2">
+                                <p class="mb-4">
+                                    Palun tutvuge <a href="/projektist" class="underline">isikuandmete töötlemise põhimõtetega</a>.
+                                </p>
+                                <p class="mb-4">
+                                    Kui dokument sisaldab teie isikuandmeid, on teil IKÜM Art 21 alusel õigus
+                                    esitada isikuandmete töötlemisele vastuväide. Kuna töötleme avalikes dokumentides
+                                    sisalduvaid andmeid avalikes huvides, selgitage vastuväites lühidalt, miks
+                                    teie konkreetsest olukorrast tulenevalt ei peaks neid isikuandmeid sellisel viisil töötlema.
+                                </p>
+                                <p class="mb-4">
+                                    Pärast taotluse esitamist saadame teie e-posti aadressile 6-kohalise kinnituskoodi.
+                                    Taotlus vaadatakse läbi pärast e-posti aadressi kinnitamist.
+                                </p>
+                            </div>
+
+
+                            @if($errors->any())
+                                <div class="mb-4">
+                                    <x-bladewind.alert type="error">
+                                        <ul class="list-disc list-inside">
+                                            @foreach($errors->all() as $error)
+                                                <li>{{ $error }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </x-bladewind.alert>
+                                </div>
+                            @endif
+
+                            <form action="{{ route('takedowns.store', $document) }}" method="post">
+                                @csrf
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="md:col-span-1 col-span-2">
+                                        <x-bladewind.input
+                                            name="author_name"
+                                            label="Teie nimi"
+                                            required="true"
+                                            selected_value="{{ old('author_name') }}"/>
+                                    </div>
+                                    <div class="md:col-span-1 col-span-2">
+                                        <x-bladewind.input
+                                            name="author_email"
+                                            type="email"
+                                            label="Teie e-post"
+                                            required="true"
+                                            selected_value="{{ old('author_email') }}"/>
+                                    </div>
+                                </div>
+                                <x-bladewind.select
+                                    name="legal_basis"
+                                    required="true"
+                                    placeholder="Õiguslik alus"
+                                    data="manual"
+                                    selected_value="{{ old('legal_basis') }}">
+                                    @foreach(\App\Models\TakedownRequest::LEGAL_BASES as $basis)
+                                        <x-bladewind.select.item :label="$basis" :value="$basis"/>
+                                    @endforeach
+                                </x-bladewind.select>
+                                <x-bladewind.textarea
+                                    name="objection_note"
+                                    label="Selgitus"
+                                    rows="4"
+                                    selected_value="{{ old('objection_note') }}"></x-bladewind.textarea>
+                                <x-bladewind.button can_submit="true">
+                                    Esita taotlus
+                                </x-bladewind.button>
+                            </form>
+                        </x-bladewind.modal>
+
+                        @if($errors->any())
+                            <script>
+                                document.addEventListener('DOMContentLoaded', () => showModal('takedown-request'));
+                            </script>
+                        @endif
+                    </div>
+
                     @if($document->ai_title)
                         <div class="ai-summary">
                             <div class="text-sm text-gray-400">AI kokkuvõte</div>
@@ -132,68 +225,6 @@
             </div>
         </div>
 
-        <div class="container mx-auto bg-white mb-8">
-            <x-bladewind.accordion>
-                <x-bladewind.accordion.item title="Esita dokumendi eemaldamise taotlus">
-                    <p class="text-sm text-gray-500 mb-4">
-                        Kui see dokument sisaldab Teie isikuandmeid või rikub Teie õigusi, saate esitada
-                        eemaldamise taotluse. Vaatame taotluse üle ja teavitame Teid otsusest e-posti teel.
-                    </p>
-
-                    @if($errors->any())
-                        <div class="mb-4">
-                            <x-bladewind.alert type="error">
-                                <ul class="list-disc list-inside">
-                                    @foreach($errors->all() as $error)
-                                        <li>{{ $error }}</li>
-                                    @endforeach
-                                </ul>
-                            </x-bladewind.alert>
-                        </div>
-                    @endif
-
-                    <form action="{{ route('takedowns.store', $document) }}" method="post" class="max-w-2xl">
-                        @csrf
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="md:col-span-1 col-span-2">
-                                <x-bladewind.input
-                                    name="author_name"
-                                    label="Teie nimi"
-                                    required="true"
-                                    selected_value="{{ old('author_name') }}"/>
-                            </div>
-                            <div class="md:col-span-1 col-span-2">
-                                <x-bladewind.input
-                                    name="author_email"
-                                    type="email"
-                                    label="Teie e-post"
-                                    required="true"
-                                    selected_value="{{ old('author_email') }}"/>
-                            </div>
-                        </div>
-                        <x-bladewind.select
-                            name="legal_basis"
-                            required="true"
-                            placeholder="Õiguslik alus"
-                            data="manual"
-                            selected_value="{{ old('legal_basis') }}">
-                            @foreach(\App\Models\TakedownRequest::LEGAL_BASES as $basis)
-                                <x-bladewind.select.item :label="$basis" :value="$basis"/>
-                            @endforeach
-                        </x-bladewind.select>
-                        <x-bladewind.textarea
-                            name="objection_note"
-                            label="Selgitus"
-                            rows="4"
-                            selected_value="{{ old('objection_note') }}"></x-bladewind.textarea>
-                        <x-bladewind.button can_submit="true">
-                            Esita taotlus
-                        </x-bladewind.button>
-                    </form>
-                </x-bladewind.accordion.item>
-            </x-bladewind.accordion>
-        </div>
-
         <hr class="mb-4">
         @if($document->files->count())
             <div class="container mx-auto">
@@ -223,7 +254,8 @@
                                                 class="underline"
                                                 href="{{$file->url}}">{{$file->name}}</a>
                                         </div>
-                                        <div class="uppercase tracking-wide text-xs text-gray-500/90 mb-2 ml-auto flex items-center">
+                                        <div
+                                            class="uppercase tracking-wide text-xs text-gray-500/90 mb-2 ml-auto flex items-center">
                                             <button
                                                 class="mr-4 font-bold uppercase tracking-wide"
                                                 id="switch-preview-{{$file->id}}">Eelvaade
@@ -234,14 +266,18 @@
                                             >Tekst
                                             </button>
                                             @if(session('is_admin'))
-                                                <form action="{{route('file.replace', $file)}}" method="post" enctype="multipart/form-data" style="display: inline;">
+                                                <form action="{{route('file.replace', $file)}}" method="post"
+                                                      enctype="multipart/form-data" style="display: inline;">
                                                     @csrf
-                                                    <label class="cursor-pointer inline-flex items-center px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">
+                                                    <label
+                                                        class="cursor-pointer inline-flex items-center px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">
                                                         <x-bladewind.icon name="arrow-path"/>
-                                                        <input type="file" name="file" class="hidden" onchange="if(confirm('Replace this file?')) this.form.submit();">
+                                                        <input type="file" name="file" class="hidden"
+                                                               onchange="if(confirm('Replace this file?')) this.form.submit();">
                                                     </label>
                                                 </form>
-                                                <form action="{{route('file.destroy', $file)}}" method="post" style="display: inline;">
+                                                <form action="{{route('file.destroy', $file)}}" method="post"
+                                                      style="display: inline;">
                                                     @method('DELETE')
                                                     @csrf
                                                     <x-bladewind.button

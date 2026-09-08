@@ -78,9 +78,12 @@
                 <div></div>
                 <div></div>
                 <div></div>
-                <div></div>
-                <div></div>
-                <div class="py-1">
+                <div class="py-1 md:col-span-2 col-span-8 whitespace-nowrap">
+                    <x-bladewind.checkbox label="Muutunud nähtavusega dokumendid" name="changed_visibility" value="1"
+                                          :checked="request('changed_visibility') == 1"
+                    />
+                </div>
+                <div class="py-1 col-span-8 md:col-span-1">
                     <x-bladewind.checkbox label="AK dok-dega" name="with_restricted" value="1"
                                           :checked="request('with_restricted') == 1"
                     />

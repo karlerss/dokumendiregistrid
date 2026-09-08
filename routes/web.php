@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MainController;
+use App\Http\Controllers\RecheckController;
 use App\Http\Controllers\SitemapsController;
 use App\Http\Controllers\TakedownController;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +33,15 @@ Route::get('/haldus/eemaldamistaotlused', [TakedownController::class, 'index'])-
 Route::get('/haldus/eemaldamistaotlused/{takedownRequest}', [TakedownController::class, 'show'])->name('takedowns.show');
 Route::post('/haldus/eemaldamistaotlused/{takedownRequest}/rahulda', [TakedownController::class, 'accept'])->name('takedowns.accept');
 Route::post('/haldus/eemaldamistaotlused/{takedownRequest}/keeldu', [TakedownController::class, 'deny'])->name('takedowns.deny');
+
+Route::get('/haldus/kontroll', [RecheckController::class, 'index'])->name('recheck.index');
+Route::post('/haldus/kontroll/{change}/kinnita', [RecheckController::class, 'acknowledge'])->name('recheck.acknowledge');
+Route::post('/haldus/kontroll/{change}/peida', [RecheckController::class, 'hide'])->name('recheck.hide');
+Route::post('/haldus/kontroll/{change}/naita', [RecheckController::class, 'unhide'])->name('recheck.unhide');
+Route::post('/haldus/kontroll/{change}/kustuta-failid', [RecheckController::class, 'deleteFiles'])->name('recheck.deleteFiles');
+Route::post('/haldus/kontroll/{change}/lae-uuesti', [RecheckController::class, 'refetch'])->name('recheck.refetch');
+Route::post('/haldus/kontroll/{change}/ignoreeri', [RecheckController::class, 'ignore'])->name('recheck.ignore');
+Route::post('/haldus/kontroll/kinnita-koik', [RecheckController::class, 'acknowledgeAll'])->name('recheck.acknowledgeAll');
 
 Route::get('login', [MainController::class, 'login'])->name('login');
 Route::post('login', [MainController::class, 'login']);

@@ -2,7 +2,9 @@
 
 namespace App\Lib\Fetcher;
 
+use App\Lib\Recheck\RemoteCheck;
 use App\Models\Document;
+use Illuminate\Http\Client\Response;
 use Carbon\Carbon;
 use function Laravel\Prompts\warning;
 
@@ -182,12 +184,10 @@ class RMKFetcher extends BaseFetcher implements Enumeratable
 
         info("Processing $docUrl");
 
-        $publicFiles = array_filter(is_array($data['data']['failid']) ? $data['data']['failid'] : [], function ($file) {
-            return $file['file_access'] === 'PUBLIC';
-        });
+        $publicFiles = self::publicFiles($data['data']);
 
         // Document is "Avalik" if doc_access is PUBLIC or if any file has PUBLIC access
-        $hasPublicAccess = $data['data']['doc_access'] === 'PUBLIC' || count($publicFiles) > 0;
+        $hasPublicAccess = self::hasPublicAccess($data['data']);
 
         $docProps = [
             'organisation_id' => $this->organisation->id,
@@ -233,6 +233,46 @@ class RMKFetcher extends BaseFetcher implements Enumeratable
         info("Stored $id");
 
         return $document;
+    }
+
+    private static function publicFiles(array $doc): array
+    {
+        return array_filter(is_array($doc['failid'] ?? null) ? $doc['failid'] : [], function ($file) {
+            return ($file['file_access'] ?? null) === 'PUBLIC';
+        });
+    }
+
+    private static function hasPublicAccess(array $doc): bool
+    {
+        return ($doc['doc_access'] ?? null) === 'PUBLIC' || count(self::publicFiles($doc)) > 0;
+    }
+
+    public function checkRemote(Document $document): RemoteCheck
+    {
+        $url = sprintf('https://adr.rmk.ee/api/dokument/%d', (int)$document->original_id);
+
+        return $this->performCheck($url, function (Response $response) {
+            $json = $response->json();
+
+            if (!is_array($json) || !array_key_exists('data', $json)) {
+                return RemoteCheck::error(RemoteCheck::ERROR_UNPARSEABLE, $response->status(), 'Unexpected API payload');
+            }
+
+            if ($json['data'] === false || $json['data'] === null) {
+                return RemoteCheck::gone($response->status());
+            }
+
+            if (!empty($json['data']['doc_is_deleted'])) {
+                return RemoteCheck::gone($response->status());
+            }
+
+            return RemoteCheck::fromRestriction(
+                self::hasPublicAccess($json['data']) ? 'Avalik' : 'AK',
+                [$json['data']['doc_restrict_desc'] ?? null],
+                null,
+                $response->status(),
+            );
+        });
     }
 
     public function getCurrentMaxId(): int

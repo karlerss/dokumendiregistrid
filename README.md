@@ -103,9 +103,42 @@ Other useful commands:
 - `php artisan app:orgs [--with-names]` — list configured organisations.
 - `php artisan fts:reindex-documents [--chunk=1000]` — rebuild the SQLite
   FTS index.
-- `php artisan docs:audit` / `php artisan audit:full` — consistency checks
-  on stored documents and files.
 - `php artisan document:fast-rebuild` — rebuild derived document state.
+
+## Re-checking documents at the source
+
+`app:recheck-daemon` is a long-running process that re-fetches every
+document that was public at ingest and records whether it is still public,
+has become access-restricted (personal-data restrictions under AvTS § 35 lg 1
+p 12 are flagged separately) or has disappeared from the registry. It never
+hides or deletes anything by itself: every change lands in the admin review
+queue at `/haldus/kontroll`, where the admin can hide the document, delete
+its files, re-fetch it or dismiss the change. A daily digest is mailed to
+`ADMIN_EMAIL`.
+
+```bash
+# Run continuously (see deploy/docregistries-recheck.service for systemd)
+php artisan app:recheck-daemon
+
+# Process everything currently due, then exit
+php artisan app:recheck-daemon --once
+
+# Probe without writing anything
+php artisan app:recheck-daemon --dry-run --limit=20
+
+# Specific documents / organisation
+php artisan app:recheck-daemon --document=123 --document=456
+php artisan app:recheck-daemon --once --org=7
+
+# From cron, hourly: mail the admin if the daemon has stopped
+php artisan app:recheck-health
+```
+
+Behaviour is configured in `config/recheck.php` (per-host request spacing,
+re-check intervals, error backoff). Transient errors (5xx, timeouts, bot
+checks) never change a document's recorded state; the host is paused and
+retried later. The daemon writes constantly, so the SQLite connection is
+configured for WAL mode (`DB_JOURNAL_MODE`, `DB_BUSY_TIMEOUT` in `.env`).
 
 ## Web routes
 

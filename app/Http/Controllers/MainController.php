@@ -33,6 +33,15 @@ class MainController extends Controller
             $query->where('restriction', 'Avalik');
         }
 
+        // Documents whose source registry has since restricted or removed them.
+        if ($request->changed_visibility == 1) {
+            $query->whereIn('documents.id', function ($sub) {
+                $sub->select('document_id')
+                    ->from('document_remote_states')
+                    ->whereIn('remote_status', ['restricted', 'gone']);
+            });
+        }
+
         if ($start = $request->date_start) {
             $query->where('registration_date', '>=', $start);
         }
@@ -61,7 +70,7 @@ class MainController extends Controller
                 ->pluck('id');
 
             $items = Document::query()->whereIn('id', $ids)
-                ->with(['organisation'])
+                ->with(['organisation', 'remoteState'])
                 ->get()
                 ->keyBy('id')
                 ->all();
@@ -89,10 +98,8 @@ class MainController extends Controller
 
     public function show(Document $document, ?string $slug = null)
     {
-        if ($document->last_visibility === 'AK' || $document->last_visibility === 'Unknown') {
-            if (!session('is_admin')) {
-                abort(451);
-            }
+        if (!$document->visible && !session('is_admin')) {
+            abort(451);
         }
 
         return view('document', [

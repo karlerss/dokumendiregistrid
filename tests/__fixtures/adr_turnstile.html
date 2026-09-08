@@ -1,0 +1,223 @@
+
+      <!DOCTYPE html>
+   <html lang="et"><head><meta charset="utf-8"/>
+            <!--[if IE]>
+         <meta content="IE=edge,chrome=1" http-equiv="X-UA-Compatible"/>
+            <![endif]-->
+         <title>Avalik dokumendiregister</title><meta content="Webmedia" name="Author"/><meta content="" name="Keywords"/><meta content="" name="Description"/><meta content="noindex, nofollow" name="robots"/><meta content="noindex" name="googlebot"/><link href="/gfx/_reset.css" rel="stylesheet"/><link media="screen, projection, tv" href="/gfx/_screen.css" rel="stylesheet"/><link media="print" href="/gfx/_print.css" rel="stylesheet"/><script>document.documentElement.className += " js";</script></head><body><div id="wrap"><div id="header"><div class="aligner"><p id="logo"><a href="/">Avalik dokumendiregister</a></p></div></div><div id="nav"><div class="aligner"></div></div><div class="clear" id="page"><div class="aligner"><p id="turnstile-wait">Palun oodake, toimub robotkontroll...</p><div class="adr-turnstile-widget" id="adr-turnstile-widget"></div><ul id="org-links"><li><a data-turnstile-nav-path="/ppa/" href="/ppa/">Politsei- ja Piirivalveameti dokumendiregister</a></li></ul></div></div><div id="footer"><div class="aligner"><p>v1.4.20.1</p></div></div></div><form style="display: none;" action="/turnstile/continue" method="post" id="adr-turnstile-continue-form"><input value="/ppa/dokument/1" name="returnUrl" type="hidden"/><input value="" id="adr-turnstile-continue-token" name="continueToken" type="hidden"/></form><script>
+               var adrTurnstileReady = false;
+               var adrTurnstileReturnUrl = '/ppa/dokument/1';
+               var adrTurnstileGatePassTargetUrl = '';
+               var adrTurnstileContextPath = '';
+               var adrTurnstileOrgLinkNotAllowedMessage = 'See organisatsioon ei ole hetkel saadaval. Jätkamiseks valige õige link või nupp „Jätka päringut“.';
+
+               function adrTurnstileContinueToReturnUrl() {
+                  if (!adrTurnstileReturnUrl) {
+                     return;
+                  }
+                  document.getElementById('adr-turnstile-continue-form').submit();
+               }
+
+               function adrTurnstileShowOrgLinkNotice(message) {
+                  var notice = document.getElementById('turnstile-org-link-notice');
+                  if (notice) {
+                     notice.textContent = message;
+                     notice.hidden = false;
+                  }
+               }
+
+               function adrTurnstileNavigateToGatePassTarget() {
+                  if (!adrTurnstileGatePassTargetUrl) {
+                     return;
+                  }
+                  window.location.href = adrTurnstileContextPath + adrTurnstileGatePassTargetUrl;
+               }
+
+               function adrTurnstileOnReady() {
+                  adrTurnstileReady = true;
+                  var waitMessage = document.getElementById('turnstile-wait');
+                  if (waitMessage) {
+                     waitMessage.style.display = 'none';
+                  }
+                  var continueToken = document.getElementById('adr-turnstile-continue-token').value;
+                  if (adrTurnstileReturnUrl && continueToken) {
+                     adrTurnstileContinueToReturnUrl();
+                  }
+               }
+
+               if (adrTurnstileReady) {
+                  adrTurnstileOnReady();
+               }
+               var adrTurnstileResumeGatePassButton = document.getElementById('turnstile-resume-gate-pass-button');
+               if (adrTurnstileResumeGatePassButton) {
+                  adrTurnstileResumeGatePassButton.addEventListener('click', adrTurnstileNavigateToGatePassTarget);
+               }
+               </script><script defer="defer" async="async" src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script><script>
+                  var adrTurnstileErrorMessage = 'Robotkontroll eba\u00F5nnestus. Palun v\u00E4rskendage lehte.';
+                  var adrTurnstileRateLimitMessage = 'Liiga palju robotkontrolle l\u00FChikese ajaga. Palun oodake hetk ja proovige uuesti.';
+                  var adrTurnstileTimeoutMessage = 'Robotkontroll aegus. Palun v\u00E4rskendage lehte.';
+                  var adrTurnstileSiteKey = '0x4AAAAAACHWNi2bcali1ni3';
+                  var adrTurnstileWidgetId = null;
+                  var adrTurnstileAutoExecute = true;
+                  var adrTurnstileDebugLogging = false;
+
+                  function adrTurnstileDebugLog(message, detail) {
+                     if (!adrTurnstileDebugLogging) {
+                        return;
+                     }
+                     if (detail !== undefined) {
+                        console.log('[turnstile]', message, detail);
+                     } else {
+                        console.log('[turnstile]', message);
+                     }
+                  }
+
+                  function adrTurnstileShowError(message) {
+                     var waitMessage = document.getElementById('turnstile-wait');
+                     if (waitMessage) {
+                        waitMessage.textContent = message;
+                     }
+                  }
+
+                  function adrTurnstileShowVerifyFailure(xhr, response) {
+                     if (response && response.failureReason) {
+                        adrTurnstileDebugLog('verify rejected', response);
+                        adrTurnstileShowError(adrTurnstileErrorMessage + ' [' + response.failureReason + ']');
+                        return;
+                     }
+                     adrTurnstileDebugLog('verify failed', { status: xhr.status, body: xhr.responseText });
+                     adrTurnstileShowError(adrTurnstileErrorMessage);
+                  }
+
+                  function adrTurnstileOnError() {
+                     adrTurnstileDebugLog('widget error-callback or token expired');
+                     adrTurnstileShowError(adrTurnstileErrorMessage);
+                  }
+
+                  function adrTurnstileVerify(token) {
+                     adrTurnstileDebugLog('verify start', { tokenLength: token ? token.length : 0 });
+                     var xhr = new XMLHttpRequest();
+                     xhr.open('POST', '/turnstile/verify', true);
+                     xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                     xhr.onload = function() {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                           try {
+                              var response = JSON.parse(xhr.responseText);
+                              if (response.success) {
+                                 adrTurnstileDebugLog('verify succeeded', response);
+                                 if (response.continueToken) {
+                                    document.getElementById('adr-turnstile-continue-token').value = response.continueToken;
+                                 }
+                                 adrTurnstileOnReady();
+                              } else {
+                                 adrTurnstileShowVerifyFailure(xhr, response);
+                              }
+                           } catch (e) {
+                              adrTurnstileDebugLog('verify response parse error', e);
+                              adrTurnstileShowError(adrTurnstileErrorMessage);
+                           }
+                        } else if (xhr.status === 429) {
+                           adrTurnstileDebugLog('verify rate limited');
+                           adrTurnstileShowError(adrTurnstileRateLimitMessage);
+                        } else {
+                           try {
+                              adrTurnstileShowVerifyFailure(xhr, JSON.parse(xhr.responseText));
+                           } catch (e) {
+                              adrTurnstileShowVerifyFailure(xhr, null);
+                           }
+                        }
+                     };
+                     xhr.onerror = function() {
+                        adrTurnstileDebugLog('verify network error');
+                        adrTurnstileShowError(adrTurnstileErrorMessage);
+                     };
+                     var body = 'cf-turnstile-response=' + encodeURIComponent(token);
+                     var continueReturnUrl = document.querySelector('#adr-turnstile-continue-form input[name=returnUrl]').value;
+                     if (continueReturnUrl) {
+                        body += '&returnUrl=' + encodeURIComponent(continueReturnUrl);
+                     }
+                     xhr.send(body);
+                  }
+
+                  function adrTurnstileContinueToOrgLink(orgLink) {
+                     if (!orgLink) {
+                        return;
+                     }
+                     var href = orgLink.getAttribute('href');
+                     if (!href) {
+                        return;
+                     }
+                     var orgReturnUrl = href.substring(adrTurnstileContextPath.length);
+                     if (!orgReturnUrl || !orgReturnUrl.startsWith('/')) {
+                        orgReturnUrl = '/' + orgReturnUrl;
+                     }
+                     adrTurnstileReturnUrl = orgReturnUrl;
+                     document.querySelector('#adr-turnstile-continue-form input[name=returnUrl]').value = orgReturnUrl;
+                     adrTurnstileRunOnUserAction();
+                  }
+
+                  function adrTurnstileRenderWidget() {
+                     if (adrTurnstileWidgetId !== null || typeof turnstile === 'undefined') {
+                        return;
+                     }
+                     var renderOptions = {
+                        sitekey: adrTurnstileSiteKey,
+                        theme: 'light',
+                        size: 'normal',
+                        appearance: 'always',
+                        callback: adrTurnstileVerify,
+                        'error-callback': adrTurnstileOnError,
+                        'expired-callback': adrTurnstileOnError
+                     };
+                     if (!adrTurnstileAutoExecute) {
+                        renderOptions.execution = 'execute';
+                     }
+                     adrTurnstileWidgetId = turnstile.render('#adr-turnstile-widget', renderOptions);
+                  }
+
+                  function adrTurnstileRunOnUserAction() {
+                     adrTurnstileRenderWidget();
+                     if (adrTurnstileWidgetId !== null) {
+                        turnstile.execute(adrTurnstileWidgetId);
+                     }
+                  }
+
+                  if (typeof turnstile !== 'undefined') {
+                     adrTurnstileRenderWidget();
+                  } else {
+                     window.addEventListener('load', adrTurnstileRenderWidget);
+                  }
+
+                  var adrTurnstileResumeButton = document.getElementById('turnstile-resume-button');
+                  if (adrTurnstileResumeButton) {
+                     adrTurnstileResumeButton.addEventListener('click', adrTurnstileRunOnUserAction);
+                  }
+                  var adrTurnstileRetryButton = document.getElementById('turnstile-retry-button');
+                  if (adrTurnstileRetryButton) {
+                     adrTurnstileRetryButton.addEventListener('click', adrTurnstileRunOnUserAction);
+                  }
+
+                  
+                  document.addEventListener('click', function(event) {
+                     if (!adrTurnstileReady && event.target.closest('#org-links a')) {
+                        event.preventDefault();
+                     }
+                  }, true);
+                  window.setTimeout(function() {
+                     if (!adrTurnstileReady) {
+                        adrTurnstileShowError(adrTurnstileTimeoutMessage);
+                     }
+                  }, 30000);
+                  </script><script>
+  var _paq = window._paq = window._paq || [];
+  /* tracker methods like setCustomDimension should be called before 	rackPageView */
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u="https://piwik.smit.ee/";
+    _paq.push(['setTrackerUrl', u+'matomo.php']);
+    _paq.push(['setSiteId', '1']);
+    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+    g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+  })();
+</script><noscript><p><img alt="" style="border:0;" src="https://piwik.smit.ee/matomo.php?idsite=1&amp;rec=1"/></p></noscript></body></html>

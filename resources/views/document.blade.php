@@ -71,6 +71,23 @@
                             <td class="text-right">Juurdepääsupiirang</td>
                             <td class="!text-gray-900">{{ $document->restriction }}</td>
                         </tr>
+                        @if(session('is_admin'))
+                            <tr>
+                                <td class="text-right">Allika seis (admin)</td>
+                                <td class="!text-gray-900">
+                                    @if($state = $document->remoteState)
+                                        {{ $state->statusLabel() }}
+                                        @if($state->remote_restriction_basis) — {{ $state->remote_restriction_basis }} @endif
+                                        @if($state->personal_data_restriction) <span class="text-red-700 font-semibold">isikuandmed (p 12)</span> @endif
+                                        @if($state->checked_at) <span class="text-gray-500">(kontrollitud {{ $state->checked_at->format('d.m.Y H:i') }})</span> @endif
+                                        @if($state->check_error_count) <span class="text-orange-700">{{ $state->check_error_count }} viga järjest</span> @endif
+                                    @else
+                                        <span class="text-gray-500">ei kontrollita (allikas piiratud juba kogumisel)</span>
+                                    @endif
+                                    @unless($document->visible) · <span class="text-red-700">peidetud</span> @endunless
+                                </td>
+                            </tr>
+                        @endif
                         <tr>
                             <td class="text-right">Adressaat</td>
                             <td class="!text-gray-900">{{ $document->to }}</td>

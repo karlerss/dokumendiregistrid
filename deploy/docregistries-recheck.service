@@ -1,0 +1,35 @@
+# systemd unit for the document re-check daemon.
+#
+#   sudo cp deploy/docregistries-recheck.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now docregistries-recheck
+#   journalctl -u docregistries-recheck -f
+#
+# Adjust User, WorkingDirectory and the php binary path for the server.
+
+[Unit]
+Description=dokumendiregistrid.karlerss.com remote re-check daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/doc-registries
+ExecStart=/usr/bin/php artisan app:recheck-daemon
+Restart=always
+RestartSec=30
+# Finish the current document on SIGTERM, then exit.
+KillSignal=SIGTERM
+TimeoutStopSec=60
+# Belt and braces against slow leaks in a long-lived PHP process.
+RuntimeMaxSec=86400
+MemoryMax=512M
+Nice=10
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

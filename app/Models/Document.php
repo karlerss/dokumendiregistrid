@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Lib\Fetcher\AdrFetcher;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -16,7 +17,45 @@ class Document extends Model
 
     protected $casts = [
         'registration_date' => 'date',
+        'visible' => 'boolean',
     ];
+
+    /**
+     * Documents that may be shown to non-admin visitors.
+     */
+    public function scopeVisible(Builder $query): Builder
+    {
+        return $query->where('visible', true);
+    }
+
+    /**
+     * Documents the re-check daemon is responsible for: public at ingest.
+     */
+    public function scopeRecheckable(Builder $query): Builder
+    {
+        return $query->where('restriction', 'Avalik');
+    }
+
+    /**
+     * Hot re-check state, kept in its own table so the daemon's frequent
+     * writes do not fire the FTS triggers on `documents`.
+     */
+    public function remoteState()
+    {
+        return $this->hasOne(DocumentRemoteState::class);
+    }
+
+    public function statusChanges()
+    {
+        return $this->hasMany(DocumentStatusChange::class)->orderByDesc('occurred_at');
+    }
+
+    public function hasOpenTakedownRequest(): bool
+    {
+        return $this->takedownRequests()
+            ->whereIn('status', [TakedownRequest::STATUS_PENDING, TakedownRequest::STATUS_ACCEPTED])
+            ->exists();
+    }
 
     public function files()
     {
@@ -97,7 +136,7 @@ class Document extends Model
         $f = (new AdrFetcher($this->organisation));
         [$data, $links, $relations] = $f->getPageData($this->url);
         $newFiles = $f->downloadFiles($this->original_id, $links);
-        $this->files()->sync(Arr::pluck($newFiles, 'id'));
+        $this->files()->saveMany($newFiles);
         $this->touch();
         $this->ftsIndexSingle();
     }

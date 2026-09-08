@@ -2,7 +2,9 @@
 
 namespace App\Lib\Fetcher;
 
+use App\Lib\Recheck\RemoteCheck;
 use App\Models\Document;
+use Illuminate\Http\Client\Response;
 use Carbon\Carbon;
 use Symfony\Component\DomCrawler\Crawler;
 
@@ -124,6 +126,32 @@ class TallinnFetcher extends BaseFetcher implements Enumeratable
         $filename = preg_replace('/\s+/', ' ', $filename);
         $filename = str_replace('%', '_percent', $filename);
         return $filename;
+    }
+
+    public function checkRemote(Document $document): RemoteCheck
+    {
+        return $this->performCheck($document->url, function (Response $response) {
+            $html = $response->body();
+            $crawler = new Crawler($html);
+
+            // No container at all: not a document page (maintenance, login…).
+            if ($crawler->filter('#document_container')->count() === 0) {
+                return RemoteCheck::error(RemoteCheck::ERROR_UNPARSEABLE, $response->status(), 'No #document_container in response');
+            }
+
+            $data = $this->parseHtml($html);
+            if ($data === null) {
+                // Container present but empty: the registry's answer for an unknown id.
+                return RemoteCheck::gone($response->status());
+            }
+
+            return RemoteCheck::fromRestriction(
+                $data['Juurdepääsupiirang'] ?? 'Avalik',
+                [$data['Juurdepääsupiirangu alus'] ?? null],
+                null,
+                $response->status(),
+            );
+        });
     }
 
     public function fetchAndParse(int $id): ?array

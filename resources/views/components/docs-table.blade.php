@@ -31,6 +31,9 @@
                 @if($doc->restriction !== 'Avalik')
                     🔒
                 @endif
+                @if($doc->relationLoaded('remoteState') && in_array($doc->remoteState?->remote_status, ['restricted', 'gone'], true))
+                    <span data-tooltip="Allikas on dokumendi nähtavust muutnud: {{ $doc->remoteState->statusLabel() }}{{ $doc->remoteState->remote_restriction_basis ? ' (' . $doc->remoteState->remote_restriction_basis . ')' : '' }}">⚠️</span>
+                @endif
             </td>
             <td style="white-space: nowrap;">{{$doc->type}}</td>
             <td>{{$doc->organisation->slug}}</td>

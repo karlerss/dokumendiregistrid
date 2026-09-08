@@ -2,7 +2,9 @@
 
 namespace App\Lib\Fetcher;
 
+use App\Lib\Recheck\RemoteCheck;
 use App\Models\Document;
+use Illuminate\Http\Client\Response;
 use Carbon\Carbon;
 use Illuminate\Http\Client\PendingRequest;
 use Symfony\Component\DomCrawler\Crawler;
@@ -16,9 +18,29 @@ class RiigikantseleiFetcher extends BaseFetcher implements DateTypeBasedList
      * intermediate, so OpenSSL cannot verify the chain. Disable verification
      * for this fetcher.
      */
-    protected function http(): PendingRequest
+    protected function baseHttp(): PendingRequest
     {
-        return parent::http()->withoutVerifying();
+        return parent::baseHttp()->withoutVerifying();
+    }
+
+    public function checkRemote(Document $document): RemoteCheck
+    {
+        return $this->performCheck($document->url, function (Response $response) {
+            $data = $this->parseDocumentXml($response->body());
+
+            // An unknown note id answers with HTTP 404 (handled before we get
+            // here); a 200 without a <document> root is not a document page.
+            if ($data === null) {
+                return RemoteCheck::error(RemoteCheck::ERROR_UNPARSEABLE, $response->status(), 'No <document> root in response');
+            }
+
+            return RemoteCheck::fromRestriction(
+                $data['docaccesstype'] ?? 'Avalik',
+                [$data['accessrestrictionreason'] ?? null],
+                null,
+                $response->status(),
+            );
+        });
     }
 
     public function list(Carbon $date, $type = null): array

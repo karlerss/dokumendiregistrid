@@ -3,6 +3,8 @@
 namespace App\Lib\Fetcher;
 
 use App\Lib\Parser\DirParser;
+use App\Lib\Recheck\RemoteCheck;
+use Illuminate\Http\Client\Response;
 use App\Models\Document;
 use App\Models\File;
 use App\Models\Organisation;
@@ -148,6 +150,34 @@ class AdrFetcher extends BaseFetcher implements DateTypeBasedList
     {
         $contents = $this->http()->get($docUrl)->body();
 
+        return $this->parseDocumentPage($contents);
+    }
+
+    public function checkRemote(Document $document): RemoteCheck
+    {
+        return $this->performCheck($document->url, function (Response $response) use ($document) {
+            [$data] = $this->parseDocumentPage($response->body());
+
+            if (!array_key_exists('Juurdepääsupiirang', $data)) {
+                return RemoteCheck::error(RemoteCheck::ERROR_UNPARSEABLE, $response->status(), 'No document metadata table in response');
+            }
+
+            [, $bases] = $this->getDocPropsFromData($document->original_id, $data);
+
+            return RemoteCheck::fromRestriction(
+                $data['Juurdepääsupiirang'],
+                $bases,
+                $data['Juurdepääsupiirangu muutmise alus'] ?? null,
+                $response->status(),
+            );
+        });
+    }
+
+    /**
+     * @return array{0: array<string, string|null>, 1: string[], 2: string[]} [metadata, file links, relation links]
+     */
+    public function parseDocumentPage(string $contents): array
+    {
         $c = new Crawler($contents);
 
 

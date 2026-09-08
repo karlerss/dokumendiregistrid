@@ -107,7 +107,7 @@ class DocumentApiTest extends TestCase
     {
         $org = $this->makeOrg();
         $document = $this->makeDocument($org, ['restriction' => 'AK']);
-        $document->last_visibility = 'AK';
+        $document->visible = false;
         $document->save();
 
         $response = $this->withHeaders(self::UA)->getJson('/api/documents/' . $document->id);

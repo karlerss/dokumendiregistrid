@@ -3,12 +3,16 @@
 namespace App\Lib\Fetcher;
 
 use App\Lib\Parser\DirParser;
+use App\Lib\Recheck\RemoteCheck;
 use App\Models\Document;
 use App\Models\File;
 use App\Models\Organisation;
 use Carbon\Carbon;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -20,6 +24,12 @@ abstract class BaseFetcher
     abstract public function store(?int $id = null, Document $previous = null, array $rawData = null): Document;
 
     abstract static function getFetcherType(): string;
+
+    /**
+     * Probe the source registry for the current state of an already stored
+     * document: still public, restricted, gone, or could not be determined.
+     */
+    abstract public function checkRemote(Document $document): RemoteCheck;
 
     public function __construct(protected Organisation $organisation)
     {
@@ -114,8 +124,109 @@ abstract class BaseFetcher
         return $filename;
     }
 
+    /**
+     * Request builder shared by ingestion and re-checks. Subclasses override
+     * this for host-specific options (e.g. TLS verification).
+     */
+    protected function baseHttp(): PendingRequest
+    {
+        return Http::withHeaders(['User-Agent' => self::USER_AGENT]);
+    }
+
+    /**
+     * Request builder used by ingestion: retries everything, follows redirects.
+     */
     protected function http(): PendingRequest
     {
-        return Http::withHeaders(['User-Agent' => self::USER_AGENT])->retry(3, 1000);
+        return $this->baseHttp()->retry(3, 1000);
+    }
+
+    /**
+     * Request builder used by re-checks: short timeouts, no redirects, and
+     * retries only for connection failures and 5xx. A 4xx must not be retried
+     * (it is the normal "document gone" answer) and must not throw.
+     */
+    protected function checkHttp(): PendingRequest
+    {
+        return $this->baseHttp()
+            ->timeout((int)config('recheck.timeout', 15))
+            ->connectTimeout((int)config('recheck.connect_timeout', 5))
+            ->withOptions(['allow_redirects' => false])
+            ->retry(2, 2000, function (?\Throwable $exception) {
+                // Laravel passes null for responses that are not failures (e.g. 3xx).
+                if ($exception === null) {
+                    return false;
+                }
+                if ($exception instanceof ConnectionException) {
+                    return true;
+                }
+                if ($exception instanceof RequestException) {
+                    return $exception->response->status() >= 500;
+                }
+                return false;
+            }, throw: false);
+    }
+
+    /**
+     * Fetch $url with the re-check client and classify the transport-level
+     * outcome; $interpret only runs for a 2xx response and turns the body into
+     * a RemoteCheck.
+     *
+     * @param callable(Response): RemoteCheck $interpret
+     */
+    protected function performCheck(string $url, callable $interpret): RemoteCheck
+    {
+        try {
+            $response = $this->checkHttp()->get($url);
+        } catch (ConnectionException $e) {
+            $kind = preg_match('/timed? ?out|timeout|cURL error 28/i', $e->getMessage())
+                ? RemoteCheck::ERROR_TIMEOUT
+                : RemoteCheck::ERROR_CONNECTION;
+            return RemoteCheck::error($kind, null, $e->getMessage());
+        } catch (RequestException $e) {
+            $response = $e->response;
+        } catch (\Throwable $e) {
+            return RemoteCheck::error(RemoteCheck::ERROR_CONNECTION, null, $e->getMessage());
+        }
+
+        $status = $response->status();
+
+        if ($status >= 500) {
+            return RemoteCheck::error(RemoteCheck::ERROR_HTTP_5XX, $status);
+        }
+        if ($status >= 400) {
+            return RemoteCheck::gone($status);
+        }
+        if ($status >= 300) {
+            $location = (string)$response->header('Location');
+            $kind = str_contains($location, 'returnUrl') || str_contains($location, 'turnstile')
+                ? RemoteCheck::ERROR_BOT_CHECK
+                : RemoteCheck::ERROR_REDIRECT;
+            return RemoteCheck::error($kind, $status, $location);
+        }
+
+        if ($this->looksLikeBotCheck($response->body())) {
+            return RemoteCheck::error(RemoteCheck::ERROR_BOT_CHECK, $status);
+        }
+
+        try {
+            return $interpret($response);
+        } catch (\Throwable $e) {
+            return RemoteCheck::error(RemoteCheck::ERROR_UNPARSEABLE, $status, $e->getMessage());
+        }
+    }
+
+    /**
+     * Cloudflare Turnstile / challenge interstitials. Note that ordinary
+     * adr.rik.ee pages carry Cloudflare's passive "challenge-platform" beacon,
+     * so that string must not be used here.
+     */
+    protected function looksLikeBotCheck(string $body): bool
+    {
+        $needle = mb_substr($body, 0, 20000);
+        return str_contains($needle, 'turnstile')
+            || str_contains($needle, 'robotkontroll')
+            || str_contains($needle, 'cf-chl-')
+            || str_contains($needle, 'Just a moment...');
     }
 }

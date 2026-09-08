@@ -96,7 +96,7 @@ class DocumentApiController extends Controller
 
     public function show(Document $document): JsonResponse
     {
-        if ($document->last_visibility === 'AK' || $document->last_visibility === 'Unknown') {
+        if (!$document->visible) {
             abort(451, 'This document is access-restricted.');
         }
 

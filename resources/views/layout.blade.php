@@ -24,8 +24,10 @@
             <li class="py-4"><a class="{{request()->is('api/*') || request()->is('api') ? 'font-bold': ''}}"
                                 href="/api/docs">API</a></li>
             @if(session('is_admin'))
-                <li class="py-4"><a class="{{request()->is('haldus/*') ? 'font-bold': ''}}"
+                <li class="py-4"><a class="{{request()->is('haldus/eemaldamistaotlused*') ? 'font-bold': ''}}"
                                     href="{{ route('takedowns.index') }}">Taotlused</a></li>
+                <li class="py-4"><a class="{{request()->is('haldus/kontroll*') ? 'font-bold': ''}}"
+                                    href="{{ route('recheck.index') }}">Kontroll</a></li>
             @endif
             <li class="py-4 ml-auto">
                 <a href="https://github.com/karlerss/dokumendiregistrid" target="_blank" rel="noopener noreferrer"

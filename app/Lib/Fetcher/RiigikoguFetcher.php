@@ -2,7 +2,9 @@
 
 namespace App\Lib\Fetcher;
 
+use App\Lib\Recheck\RemoteCheck;
 use App\Models\Document;
+use Illuminate\Http\Client\Response;
 use Carbon\Carbon;
 use Symfony\Component\DomCrawler\Crawler;
 
@@ -117,6 +119,33 @@ class RiigikoguFetcher extends BaseFetcher implements DateTypeBasedList
         $document->ftsIndexSingle();
 
         return $document;
+    }
+
+    public function checkRemote(Document $document): RemoteCheck
+    {
+        return $this->performCheck($document->url, function (Response $response) {
+            $html = $response->body();
+            $crawler = new Crawler($html);
+
+            if ($crawler->filter('section.content-section')->count() === 0) {
+                return RemoteCheck::error(RemoteCheck::ERROR_UNPARSEABLE, $response->status(), 'No content section in response');
+            }
+
+            $data = $this->parseDocumentPage($html);
+            $meta = array_filter($data, fn($key) => !str_starts_with((string)$key, '_'), ARRAY_FILTER_USE_KEY);
+
+            // The site answers 200 with an empty metadata table for unknown UUIDs.
+            if ($meta === []) {
+                return RemoteCheck::gone($response->status());
+            }
+
+            return RemoteCheck::fromRestriction(
+                $data['_restriction'],
+                $data['_restriction_bases'],
+                null,
+                $response->status(),
+            );
+        });
     }
 
     private function buildListUrl(Carbon $date, int $page): string

@@ -20,6 +20,9 @@ final class RemoteCheck
     public const ERROR_BOT_CHECK = 'bot_check';
     public const ERROR_REDIRECT = 'redirect';
     public const ERROR_UNPARSEABLE = 'unparseable';
+    public const ERROR_RATE_LIMITED = 'rate_limited';
+    public const ERROR_FORBIDDEN = 'forbidden';
+    public const ERROR_HTTP_4XX = 'http4xx';
 
     /**
      * @param string[] $bases
@@ -32,6 +35,7 @@ final class RemoteCheck
         public readonly ?string $changeBasis = null,
         public readonly ?string $errorKind = null,
         public readonly ?string $errorMessage = null,
+        public readonly ?int $retryAfterSeconds = null,
     ) {
     }
 
@@ -64,9 +68,9 @@ final class RemoteCheck
         return new self(outcome: self::GONE, httpStatus: $httpStatus);
     }
 
-    public static function error(string $kind, ?int $httpStatus = null, ?string $message = null): self
+    public static function error(string $kind, ?int $httpStatus = null, ?string $message = null, ?int $retryAfterSeconds = null): self
     {
-        return new self(outcome: self::ERROR, httpStatus: $httpStatus, errorKind: $kind, errorMessage: $message);
+        return new self(outcome: self::ERROR, httpStatus: $httpStatus, errorKind: $kind, errorMessage: $message, retryAfterSeconds: $retryAfterSeconds);
     }
 
     public function isError(): bool
@@ -77,6 +81,15 @@ final class RemoteCheck
     public function isBotCheck(): bool
     {
         return $this->errorKind === self::ERROR_BOT_CHECK;
+    }
+
+    /**
+     * The host is refusing us for now (HTTP 429). Says nothing about the
+     * document, so the document must not accumulate error backoff.
+     */
+    public function isRateLimited(): bool
+    {
+        return $this->errorKind === self::ERROR_RATE_LIMITED;
     }
 
     public function basisString(): ?string

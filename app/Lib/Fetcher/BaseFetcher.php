@@ -194,8 +194,21 @@ abstract class BaseFetcher
         if ($status >= 500) {
             return RemoteCheck::error(RemoteCheck::ERROR_HTTP_5XX, $status);
         }
-        if ($status >= 400) {
+        // Only "not found" answers mean the document is gone. Everything else
+        // in the 4xx range is the host refusing us, not a statement about the
+        // document: adr.rik.ee answers 429 for a while every morning, and a
+        // closed registry answers 403 for all of its documents.
+        if ($status === 429) {
+            return RemoteCheck::error(RemoteCheck::ERROR_RATE_LIMITED, $status, null, self::retryAfterSeconds($response->header('Retry-After')));
+        }
+        if ($status === 403) {
+            return RemoteCheck::error(RemoteCheck::ERROR_FORBIDDEN, $status);
+        }
+        if ($status === 404 || $status === 410) {
             return RemoteCheck::gone($status);
+        }
+        if ($status >= 400) {
+            return RemoteCheck::error(RemoteCheck::ERROR_HTTP_4XX, $status);
         }
         if ($status >= 300) {
             $location = (string)$response->header('Location');
@@ -214,6 +227,22 @@ abstract class BaseFetcher
         } catch (\Throwable $e) {
             return RemoteCheck::error(RemoteCheck::ERROR_UNPARSEABLE, $status, $e->getMessage());
         }
+    }
+
+    /**
+     * Parse a Retry-After header (delay in seconds or an HTTP date).
+     */
+    public static function retryAfterSeconds(?string $header): ?int
+    {
+        $header = trim((string)$header);
+        if ($header === '') {
+            return null;
+        }
+        if (ctype_digit($header)) {
+            return (int)$header;
+        }
+        $timestamp = strtotime($header);
+        return $timestamp === false ? null : max(0, $timestamp - time());
     }
 
     /**

@@ -94,6 +94,66 @@ class RemoteCheckTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_adr_410_is_gone(): void
+    {
+        $doc = $this->adrDoc();
+        Http::fake([$doc->url => Http::response('', 410)]);
+
+        $check = $doc->organisation->getFetcher()->checkRemote($doc);
+
+        $this->assertSame(RemoteCheck::GONE, $check->outcome);
+        $this->assertSame(410, $check->httpStatus);
+    }
+
+    public function test_adr_429_is_a_rate_limit_error_not_gone(): void
+    {
+        $doc = $this->adrDoc();
+        Http::fake([$doc->url => Http::response('Too Many Requests', 429, ['Retry-After' => '120'])]);
+
+        $check = $doc->organisation->getFetcher()->checkRemote($doc);
+
+        $this->assertSame(RemoteCheck::ERROR, $check->outcome);
+        $this->assertSame(RemoteCheck::ERROR_RATE_LIMITED, $check->errorKind);
+        $this->assertTrue($check->isRateLimited());
+        $this->assertSame(429, $check->httpStatus);
+        $this->assertSame(120, $check->retryAfterSeconds);
+        Http::assertSentCount(1);
+    }
+
+    public function test_adr_403_is_a_forbidden_error_not_gone(): void
+    {
+        $doc = $this->adrDoc();
+        Http::fake([$doc->url => Http::response('Forbidden', 403)]);
+
+        $check = $doc->organisation->getFetcher()->checkRemote($doc);
+
+        $this->assertSame(RemoteCheck::ERROR, $check->outcome);
+        $this->assertSame(RemoteCheck::ERROR_FORBIDDEN, $check->errorKind);
+        $this->assertSame(403, $check->httpStatus);
+        Http::assertSentCount(1);
+    }
+
+    public function test_other_4xx_is_a_transient_error(): void
+    {
+        $doc = $this->adrDoc();
+        Http::fake([$doc->url => Http::response('', 400)]);
+
+        $check = $doc->organisation->getFetcher()->checkRemote($doc);
+
+        $this->assertSame(RemoteCheck::ERROR, $check->outcome);
+        $this->assertSame(RemoteCheck::ERROR_HTTP_4XX, $check->errorKind);
+    }
+
+    public function test_retry_after_header_parsing(): void
+    {
+        $this->assertNull(\App\Lib\Fetcher\BaseFetcher::retryAfterSeconds(null));
+        $this->assertNull(\App\Lib\Fetcher\BaseFetcher::retryAfterSeconds(''));
+        $this->assertSame(90, \App\Lib\Fetcher\BaseFetcher::retryAfterSeconds('90'));
+        $future = \App\Lib\Fetcher\BaseFetcher::retryAfterSeconds(gmdate('D, d M Y H:i:s \G\M\T', time() + 600));
+        $this->assertGreaterThan(590, $future);
+        $this->assertLessThanOrEqual(600, $future);
+    }
+
     public function test_adr_500_is_a_transient_error_after_retries(): void
     {
         $doc = $this->adrDoc();

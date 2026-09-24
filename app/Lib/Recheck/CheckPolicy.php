@@ -45,6 +45,11 @@ class CheckPolicy
         return $now->copy()->addDays((int)$intervals['old']);
     }
 
+    public function rateLimitPauseMinutes(): int
+    {
+        return (int)($this->config['rate_limit_pause_minutes'] ?? 30);
+    }
+
     /**
      * Next attempt after the Nth consecutive transient error.
      */

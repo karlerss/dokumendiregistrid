@@ -51,6 +51,15 @@ class DocumentChecker
             /** @var DocumentRemoteState $state */
             $state = DocumentRemoteState::query()->firstOrNew(['document_id' => $document->id]);
 
+            if ($check->isRateLimited()) {
+                // The host refused us, which says nothing about the document:
+                // try again after the host pause without touching its backoff.
+                $state->last_http_status = $check->httpStatus;
+                $state->next_check_at = $now->copy()->addMinutes((int)($this->policy->rateLimitPauseMinutes()));
+                $state->save();
+                return null;
+            }
+
             if ($check->isError()) {
                 $state->check_error_count = $state->check_error_count + 1;
                 $state->last_http_status = $check->httpStatus;

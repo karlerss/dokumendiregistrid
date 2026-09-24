@@ -40,6 +40,19 @@ class RecheckController extends Controller
             ->selectRaw("count(*) as total, sum(remote_status is null) as unchecked, sum(next_check_at is null or next_check_at <= ?) as due, sum(remote_status = 'public') as public, sum(remote_status = 'restricted') as restricted, sum(remote_status = 'gone') as gone, sum(check_error_count > 0) as erroring", [now()])
             ->first();
 
+        // Due documents the daemon cannot reach right now, per paused host, so
+        // the "pending" figure separates a blocked backlog from real work.
+        $pausedHosts = Heartbeat::pausedHosts();
+        $pausedBacklog = [];
+        foreach (array_keys($pausedHosts) as $host) {
+            $pausedBacklog[$host] = DocumentRemoteState::query()
+                ->join('documents', 'documents.id', '=', 'document_remote_states.document_id')
+                ->due()
+                ->where('documents.url', 'like', '%://' . $host . '/%')
+                ->count();
+        }
+        $dueActive = max(0, (int)($queue->due ?? 0) - array_sum($pausedBacklog));
+
         return view('admin.recheck.index', [
             'changes' => $changes,
             'counts' => $counts,
@@ -49,7 +62,9 @@ class RecheckController extends Controller
             'heartbeat' => Heartbeat::lastBeat(),
             'heartbeatStale' => Heartbeat::isStale(),
             'stats' => Heartbeat::statsForLastHours(24),
-            'pausedHosts' => Heartbeat::pausedHosts(),
+            'pausedHosts' => $pausedHosts,
+            'pausedBacklog' => $pausedBacklog,
+            'dueActive' => $dueActive,
             'hiddenCount' => Document::query()->where('visible', false)->count(),
         ]);
     }

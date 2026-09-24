@@ -119,6 +119,49 @@ class HostThrottleTest extends TestCase
         $this->assertFalse($t->isPaused('a.example'));
     }
 
+    public function test_rate_limit_pauses_host_immediately_and_honours_a_longer_retry_after(): void
+    {
+        Carbon::setTestNow('2026-09-07 10:00:00');
+        $t = new HostThrottle(750, 3, 5, [15, 30, 60], 1440, fn() => null, fn() => 1000.0, rateLimitPauseMinutes: 30);
+
+        $until = $t->recordError('adr.rik.ee', RemoteCheck::error(RemoteCheck::ERROR_RATE_LIMITED, 429));
+        $this->assertSame('2026-09-07 10:30:00', $until->toDateTimeString());
+        $this->assertTrue($t->isPaused('adr.rik.ee'));
+
+        Carbon::setTestNow('2026-09-07 11:00:00');
+        $until = $t->recordError('www.riigikogu.ee', RemoteCheck::error(RemoteCheck::ERROR_RATE_LIMITED, 429, null, 3600));
+        $this->assertSame('2026-09-07 12:00:00', $until->toDateTimeString());
+
+        // A short Retry-After does not shorten the default pause.
+        $until = $t->recordError('b.example', RemoteCheck::error(RemoteCheck::ERROR_RATE_LIMITED, 429, null, 5));
+        $this->assertSame('2026-09-07 11:30:00', $until->toDateTimeString());
+    }
+
+    public function test_per_host_delay_override_replaces_the_default_spacing(): void
+    {
+        $t = new HostThrottle(
+            750, 0, 5, [15], 1440,
+            function (float $s) {
+                $this->sleeps[] = round($s, 3);
+                $this->clock += $s;
+            },
+            fn() => $this->clock,
+            30,
+            ['www.riigikogu.ee' => 4000],
+        );
+        $this->sleeps = [];
+        $this->clock = 1000.0;
+
+        $t->waitFor('www.riigikogu.ee');
+        $t->waitFor('www.riigikogu.ee');
+        $t->waitFor('adr.rik.ee');
+        $t->waitFor('adr.rik.ee');
+
+        $this->assertSame([4.0, 0.75], $this->sleeps);
+        $this->assertSame(4000, $t->perHostDelayMs('www.riigikogu.ee'));
+        $this->assertSame(750, $t->perHostDelayMs('adr.rik.ee'));
+    }
+
     public function test_bot_check_pauses_host_immediately_for_the_long_pause(): void
     {
         Carbon::setTestNow('2026-09-07 10:00:00');

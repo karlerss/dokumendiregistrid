@@ -36,8 +36,11 @@
                 </div>
                 <div class="border border-gray-200 rounded p-4">
                     <div class="text-gray-500">Järjekord</div>
-                    <div class="text-lg font-semibold">{{ number_format($queue->due ?? 0) }} ootel</div>
+                    <div class="text-lg font-semibold">{{ number_format($dueActive) }} ootel</div>
                     <div class="text-gray-500">
+                        @if(array_sum($pausedBacklog) > 0)
+                            + {{ number_format(array_sum($pausedBacklog)) }} peatatud hostidel ·
+                        @endif
                         {{ number_format($queue->total ?? 0) }} kokku ·
                         {{ number_format($queue->unchecked ?? 0) }} kontrollimata ·
                         {{ number_format($queue->erroring ?? 0) }} veaga
@@ -59,7 +62,7 @@
                     <x-bladewind.alert type="warning" shade="faint">
                         Peatatud hostid:
                         @foreach($pausedHosts as $host => $until)
-                            <span class="font-mono">{{ $host }}</span> (kuni {{ $until->format('d.m.Y H:i') }}){{ $loop->last ? '' : ', ' }}
+                            <span class="font-mono">{{ $host }}</span> (kuni {{ $until->format('d.m.Y H:i') }}, {{ number_format($pausedBacklog[$host] ?? 0) }} ootel){{ $loop->last ? '' : ', ' }}
                         @endforeach
                     </x-bladewind.alert>
                 </div>

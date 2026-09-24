@@ -83,11 +83,23 @@ class RecheckDaemon extends Command
                 continue;
             }
 
+            $before = $this->checked;
             $this->processBatch($batch, $dryRun, $limit);
 
             if (!$dryRun) {
                 $this->heartbeat->flush($this->throttle->pausedHosts());
                 $this->maybeSendDigest();
+            }
+
+            if ($this->checked === $before && !$this->stopRequested) {
+                // Every document in the batch sits on a paused host (a host
+                // that is not the organisation's own): treat it as an empty
+                // queue instead of re-reading the same rows in a tight loop.
+                if ($once) {
+                    break;
+                }
+                $this->idle((int)config('recheck.idle_sleep_seconds', 60));
+                continue;
             }
 
             if ($limit !== null && $this->checked >= $limit) {

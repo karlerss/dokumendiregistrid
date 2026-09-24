@@ -16,6 +16,12 @@ return [
     // Minimum spacing between two requests to the same host (milliseconds).
     'per_host_delay_ms' => (int) env('RECHECK_PER_HOST_DELAY_MS', 750),
 
+    // Hosts that need more room than the default. www.riigikogu.ee starts
+    // answering 429 and then a 200 block page at the default spacing.
+    'per_host_delay_overrides_ms' => [
+        'www.riigikogu.ee' => (int) env('RECHECK_RIIGIKOGU_DELAY_MS', 4000),
+    ],
+
     // Hard cap on requests per second across all hosts.
     'global_max_rps' => (float) env('RECHECK_GLOBAL_MAX_RPS', 3),
 
@@ -55,6 +61,10 @@ return [
 
     // Pause length (minutes) when a host answers with a bot check.
     'bot_check_pause_minutes' => 1440,
+
+    // Pause length (minutes) when a host answers HTTP 429; a longer
+    // Retry-After header wins. The documents themselves are not backed off.
+    'rate_limit_pause_minutes' => 30,
 
     // Hour of day (server time) at which the daemon sends the daily digest.
     'digest_hour' => 8,

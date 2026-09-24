@@ -38,6 +38,7 @@ class DocumentCheckerTest extends TestCase
         return new DocumentChecker(new CheckPolicy([
             'intervals' => ['takedown' => 7, 'recent' => 14, 'recent_age_days' => 180, 'old' => 45, 'changed' => 90],
             'error_backoff_hours' => [1, 6, 24, 72],
+            'rate_limit_pause_minutes' => 30,
         ]));
     }
 
@@ -63,6 +64,23 @@ class DocumentCheckerTest extends TestCase
     private function state(Document $doc): DocumentRemoteState
     {
         return DocumentRemoteState::query()->findOrFail($doc->id);
+    }
+
+    public function test_rate_limit_keeps_state_and_error_count_and_retries_after_the_host_pause(): void
+    {
+        $doc = $this->doc();
+        $state = $this->state($doc);
+        $state->forceFill(['remote_status' => 'public', 'remote_restriction' => 'Avalik', 'checked_at' => $this->now->copy()->subDays(20), 'check_error_count' => 2])->save();
+
+        $change = $this->checker()->apply($doc, RemoteCheck::error(RemoteCheck::ERROR_RATE_LIMITED, 429), $this->now);
+
+        $this->assertNull($change);
+        $state = $this->state($doc);
+        $this->assertSame('public', $state->remote_status);
+        $this->assertSame(2, $state->check_error_count);
+        $this->assertSame(429, $state->last_http_status);
+        $this->assertSame('2026-09-07 12:30:00', $state->next_check_at->toDateTimeString());
+        $this->assertSame(0, DocumentStatusChange::query()->count());
     }
 
     public function test_first_check_public_records_state_without_a_queue_row(): void

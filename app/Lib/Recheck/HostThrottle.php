@@ -32,6 +32,7 @@ class HostThrottle
      * @param int[] $pauseMinutes
      * @param Closure(float): void|null $sleeper receives seconds to sleep
      * @param Closure(): float|null $clock returns monotonic seconds
+     * @param array<string, int> $perHostDelayOverridesMs host => spacing that replaces $perHostDelayMs
      */
     public function __construct(
         private int $perHostDelayMs,
@@ -41,6 +42,8 @@ class HostThrottle
         private int $botCheckPauseMinutes,
         ?Closure $sleeper = null,
         ?Closure $clock = null,
+        private int $rateLimitPauseMinutes = 30,
+        private array $perHostDelayOverridesMs = [],
     ) {
         $this->sleeper = $sleeper ?? fn(float $seconds) => usleep((int)round($seconds * 1_000_000));
         $this->clock = $clock ?? fn() => microtime(true);
@@ -57,7 +60,14 @@ class HostThrottle
             (int)$c['bot_check_pause_minutes'],
             $sleeper,
             $clock,
+            (int)($c['rate_limit_pause_minutes'] ?? 30),
+            array_change_key_case(array_map('intval', $c['per_host_delay_overrides_ms'] ?? []), CASE_LOWER),
         );
+    }
+
+    public function perHostDelayMs(string $host): int
+    {
+        return $this->perHostDelayOverridesMs[$host] ?? $this->perHostDelayMs;
     }
 
     public static function host(string $url): string
@@ -97,7 +107,7 @@ class HostThrottle
 
         $perHostWait = 0.0;
         if (isset($this->lastRequestAt[$host])) {
-            $perHostWait = ($this->lastRequestAt[$host] + $this->perHostDelayMs / 1000) - $now;
+            $perHostWait = ($this->lastRequestAt[$host] + $this->perHostDelayMs($host) / 1000) - $now;
         }
 
         $globalWait = 0.0;
@@ -129,6 +139,13 @@ class HostThrottle
         if ($check->isBotCheck()) {
             $this->consecutiveErrors[$host] = 0;
             return $this->pause($host, $this->botCheckPauseMinutes);
+        }
+
+        if ($check->isRateLimited()) {
+            // Back off at once; a longer Retry-After wins over the default.
+            $this->consecutiveErrors[$host] = 0;
+            $minutes = max($this->rateLimitPauseMinutes, (int)ceil(($check->retryAfterSeconds ?? 0) / 60));
+            return $this->pause($host, $minutes);
         }
 
         $this->consecutiveErrors[$host] = ($this->consecutiveErrors[$host] ?? 0) + 1;

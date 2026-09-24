@@ -103,6 +103,23 @@ class RecheckAdminTest extends TestCase
             ->assertSee('adr.politsei.ee');
     }
 
+    public function test_pending_count_separates_backlog_on_paused_hosts(): void
+    {
+        $ppa = Organisation::create(['name' => 'PPA', 'slug' => 'ppa', 'registry_base_uri' => 'https://adr.politsei.ee/ppa/', 'fetcher_type' => 'delta-adr']);
+        $this->doc(['organisation_id' => $ppa->id, 'url' => 'https://adr.politsei.ee/ppa/dokument/1']);
+        $this->doc(['organisation_id' => $ppa->id, 'url' => 'https://adr.politsei.ee/ppa/dokument/2']);
+        $this->doc(); // adr.rik.ee, reachable
+        Cache::forever(Heartbeat::KEY_BEAT, now()->toIso8601String());
+        Cache::forever(Heartbeat::KEY_PAUSED, ['adr.politsei.ee' => now()->addDay()->toIso8601String()]);
+
+        $this->asAdmin()->get(route('recheck.index'))
+            ->assertOk()
+            ->assertSee('1 ootel')
+            ->assertSee('+ 2 peatatud hostidel')
+            ->assertSee('adr.politsei.ee')
+            ->assertSee('2 ootel');
+    }
+
     public function test_type_filter(): void
     {
         $doc = $this->doc();

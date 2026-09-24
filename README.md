@@ -132,12 +132,17 @@ php artisan app:recheck-daemon --once --org=7
 
 # From cron, hourly: mail the admin if the daemon has stopped
 php artisan app:recheck-health
+
+# Undo "gone" verdicts recorded on HTTP 429/403 and re-queue those documents
+php artisan app:recheck-reset-false-gone [--dry-run] [--http-status=429 ...]
 ```
 
-Behaviour is configured in `config/recheck.php` (per-host request spacing,
-re-check intervals, error backoff). Transient errors (5xx, timeouts, bot
-checks) never change a document's recorded state; the host is paused and
-retried later. The daemon writes constantly, so the SQLite connection is
+Behaviour is configured in `config/recheck.php` (per-host request spacing
+with per-host overrides, re-check intervals, error backoff). Only HTTP 404
+and 410 mean a document is gone. Transient errors (5xx, timeouts, bot
+checks, 429 rate limits, 403) never change a document's recorded state; the
+host is paused and retried later, and a 429 does not count against the
+document's own error backoff. The daemon writes constantly, so the SQLite connection is
 configured for WAL mode (`DB_JOURNAL_MODE`, `DB_BUSY_TIMEOUT` in `.env`).
 
 ## Web routes

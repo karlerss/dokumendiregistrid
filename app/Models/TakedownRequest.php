@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
@@ -11,6 +12,56 @@ class TakedownRequest extends Model
     use HasFactory;
 
     public const VERIFICATION_CODE_TTL_MINUTES = 30;
+
+    /**
+     * Configured public-sector email domains, lower-cased.
+     *
+     * @return string[]
+     */
+    public static function publicSectorDomains(): array
+    {
+        return array_values(array_unique(array_map(
+            fn($d) => mb_strtolower(trim((string)$d)),
+            config('takedowns.public_sector_domains', []),
+        )));
+    }
+
+    public static function isPublicSectorEmail(?string $email): bool
+    {
+        $at = $email !== null ? mb_strrpos($email, '@') : false;
+        if ($at === false) {
+            return false;
+        }
+        $domain = mb_strtolower(mb_substr($email, $at + 1));
+        foreach (self::publicSectorDomains() as $known) {
+            if ($domain === $known || str_ends_with($domain, '.' . $known)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function isFromPublicSector(): bool
+    {
+        return self::isPublicSectorEmail($this->author_email);
+    }
+
+    /**
+     * Requests whose sender is not a configured public-sector domain.
+     */
+    public function scopeExcludingPublicSector(Builder $query): Builder
+    {
+        $domains = self::publicSectorDomains();
+        if ($domains === []) {
+            return $query;
+        }
+        return $query->where(function (Builder $q) use ($domains) {
+            foreach ($domains as $domain) {
+                $q->whereRaw('lower(author_email) not like ?', ['%@' . $domain])
+                    ->whereRaw('lower(author_email) not like ?', ['%.' . $domain]);
+            }
+        });
+    }
 
     public const STATUS_UNVERIFIED = 'unverified';
     public const STATUS_PENDING = 'pending';

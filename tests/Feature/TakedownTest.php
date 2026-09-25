@@ -293,6 +293,38 @@ class TakedownTest extends TestCase
     }
 
     /** @test */
+    public function admin_index_can_exclude_public_sector_requesters(): void
+    {
+        config(['takedowns.public_sector_domains' => ['politsei.ee', 'rik.ee']]);
+        $document = $this->makeDocument();
+        $document->takedownRequests()->create($this->storeData(['author_name' => 'Politsei Ametnik', 'author_email' => 'ametnik@politsei.ee']));
+        $document->takedownRequests()->create($this->storeData(['author_name' => 'Kohtute Osakond', 'author_email' => 'Keegi@Kohtud.RIK.ee']));
+        $document->takedownRequests()->create($this->storeData(['author_name' => 'Mari Maasikas', 'author_email' => 'mari@gmail.com']));
+        $document->takedownRequests()->create($this->storeData(['author_name' => 'Rikki Firma', 'author_email' => 'info@rik.ee.example.com']));
+
+        $this->assertTrue(TakedownRequest::isPublicSectorEmail('a@rik.ee'));
+        $this->assertTrue(TakedownRequest::isPublicSectorEmail('a@sub.rik.ee'));
+        $this->assertFalse(TakedownRequest::isPublicSectorEmail('a@rik.ee.example.com'));
+        $this->assertFalse(TakedownRequest::isPublicSectorEmail('a@notrik.ee'));
+        $this->assertFalse(TakedownRequest::isPublicSectorEmail(null));
+
+        $this->withSession(['is_admin' => true])
+            ->get(route('takedowns.index'))
+            ->assertStatus(200)
+            ->assertSee('Politsei Ametnik')
+            ->assertSee('Mari Maasikas')
+            ->assertSee('(2 peidetud)');
+
+        $this->withSession(['is_admin' => true])
+            ->get(route('takedowns.index', ['exclude_public_sector' => 1]))
+            ->assertStatus(200)
+            ->assertDontSee('Politsei Ametnik')
+            ->assertDontSee('Kohtute Osakond')
+            ->assertSee('Mari Maasikas')
+            ->assertSee('Rikki Firma');
+    }
+
+    /** @test */
     public function admin_can_accept_request_with_note(): void
     {
         Mail::fake();

@@ -125,18 +125,27 @@ class TakedownController extends Controller
         return 'takedown-resend:' . $takedownRequest->id;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizeAdmin();
 
+        $excludePublicSector = $request->boolean('exclude_public_sector');
+
         $takedownRequests = TakedownRequest::query()
             ->with('document')
+            ->when($excludePublicSector, fn($q) => $q->excludingPublicSector())
             ->orderByRaw("case when status in ('unverified', 'pending') then 0 else 1 end")
             ->orderByDesc('created_at')
-            ->paginate(50);
+            ->paginate(50)
+            ->withQueryString();
+
+        $total = TakedownRequest::query()->count();
+        $privateCount = TakedownRequest::query()->excludingPublicSector()->count();
 
         return view('admin.takedowns.index', [
             'takedownRequests' => $takedownRequests,
+            'excludePublicSector' => $excludePublicSector,
+            'publicSectorCount' => $total - $privateCount,
         ]);
     }
 

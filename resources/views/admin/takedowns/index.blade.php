@@ -13,6 +13,17 @@
                 </div>
             @endif
 
+            <div class="flex flex-wrap gap-3 items-center mb-4 text-sm">
+                <a href="{{ route('takedowns.index') }}"
+                   class="px-3 py-1 rounded border {{ !$excludePublicSector ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 hover:bg-gray-100' }}">
+                    Kõik
+                </a>
+                <a href="{{ route('takedowns.index', ['exclude_public_sector' => 1]) }}"
+                   class="px-3 py-1 rounded border {{ $excludePublicSector ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 hover:bg-gray-100' }}">
+                    Ilma avaliku sektorita <span class="opacity-70">({{ $publicSectorCount }} peidetud)</span>
+                </a>
+            </div>
+
             <x-bladewind.table divider="thin">
                 <x-slot name="header">
                     <th>Dokument</th>
@@ -40,6 +51,9 @@
                         </td>
                         <td>
                             {{ $takedownRequest->author_name }}
+                            @if($takedownRequest->isFromPublicSector())
+                                <span class="text-xs text-blue-700 bg-blue-50 rounded px-1 ml-1" title="Avaliku sektori saatja">avalik sektor</span>
+                            @endif
                             <span class="text-xs text-gray-400 block">{{ $takedownRequest->author_email }}</span>
                         </td>
                         <td style="white-space: nowrap;">{{ $takedownRequest->legal_basis }}</td>

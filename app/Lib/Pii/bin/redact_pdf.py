@@ -25,10 +25,13 @@ def main() -> int:
     src, dst, forms_path = sys.argv[1:4]
 
     try:
-        import fitz  # PyMuPDF
+        import pymupdf as fitz  # PyMuPDF >= 1.24
     except ImportError:
-        sys.stderr.write("PyMuPDF is not installed (pip install pymupdf)\n")
-        return 1
+        try:
+            import fitz  # older PyMuPDF
+        except ImportError:
+            sys.stderr.write("PyMuPDF is not installed (pip install pymupdf)\n")
+            return 1
 
     with open(forms_path, encoding="utf-8") as fh:
         forms = [f for f in json.load(fh) if isinstance(f, str) and f.strip()]

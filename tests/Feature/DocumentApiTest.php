@@ -131,6 +131,77 @@ class DocumentApiTest extends TestCase
             ->assertJsonStructure(['data' => [['id', 'title', 'reference', 'organisation' => ['id', 'name', 'slug']]], 'current_page', 'per_page', 'total', 'last_page']);
     }
 
+    private function remoteState(Document $document, string $status, bool $personalData = false): void
+    {
+        \App\Models\DocumentRemoteState::create([
+            'document_id' => $document->id,
+            'remote_status' => $status,
+            'remote_restriction' => $status === 'restricted' ? 'AK' : null,
+            'remote_restriction_basis' => $status === 'restricted' ? 'AvTS § 35 lg 1 p 12' : null,
+            'personal_data_restriction' => $personalData,
+            'checked_at' => '2026-09-20 10:00:00',
+        ]);
+    }
+
+    /** @test */
+    public function it_filters_documents_whose_source_visibility_changed(): void
+    {
+        $org = $this->makeOrg();
+        $stillPublic = $this->makeDocument($org, ['title' => 'Still public']);
+        $this->remoteState($stillPublic, 'public');
+        $this->makeDocument($org, ['title' => 'Never checked']);
+        $restricted = $this->makeDocument($org, ['title' => 'Now restricted']);
+        $this->remoteState($restricted, 'restricted', personalData: true);
+        $gone = $this->makeDocument($org, ['title' => 'Now gone']);
+        $this->remoteState($gone, 'gone');
+
+        $all = $this->withHeaders(self::UA)->getJson('/api/documents');
+        $all->assertStatus(200)->assertJsonPath('total', 4);
+
+        $changed = $this->withHeaders(self::UA)->getJson('/api/documents?changed_visibility=1');
+        $changed->assertStatus(200)->assertJsonPath('total', 2);
+        $this->assertEqualsCanonicalizing([$restricted->id, $gone->id], collect($changed->json('data'))->pluck('id')->all());
+
+        $personal = $this->withHeaders(self::UA)->getJson('/api/documents?personal_data=1');
+        $personal->assertStatus(200)
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('data.0.id', $restricted->id)
+            ->assertJsonPath('data.0.source_status.status', 'restricted')
+            ->assertJsonPath('data.0.source_status.restriction', 'AK')
+            ->assertJsonPath('data.0.source_status.restriction_basis', 'AvTS § 35 lg 1 p 12')
+            ->assertJsonPath('data.0.source_status.personal_data', true)
+            ->assertJsonPath('data.0.source_status.checked_at', '2026-09-20T10:00:00+00:00');
+
+        $this->assertNull(collect($all->json('data'))->firstWhere('title', 'Never checked')['source_status']);
+
+        $this->withHeaders(self::UA)->getJson('/api/documents?personal_data=2')->assertStatus(422);
+    }
+
+    /** @test */
+    public function detail_includes_source_status(): void
+    {
+        $org = $this->makeOrg();
+        $doc = $this->makeDocument($org);
+        $this->remoteState($doc, 'gone');
+
+        $this->withHeaders(self::UA)->getJson('/api/documents/' . $doc->id)
+            ->assertStatus(200)
+            ->assertJsonPath('source_status.status', 'gone')
+            ->assertJsonPath('source_status.personal_data', false);
+    }
+
+    /** @test */
+    public function openapi_spec_documents_the_source_status_filters(): void
+    {
+        $response = $this->withHeaders(self::UA)->getJson('/api/openapi.json');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('components.schemas.Document.properties.source_status.type', 'object');
+        $names = collect($response->json('paths./documents.get.parameters'))->pluck('name')->all();
+        $this->assertContains('changed_visibility', $names);
+        $this->assertContains('personal_data', $names);
+    }
+
     /** @test */
     public function openapi_spec_includes_file_url_property(): void
     {

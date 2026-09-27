@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Document;
+use App\Models\DocumentRemoteState;
 use App\Models\Organisation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,8 @@ class DocumentApiController extends Controller
             'query' => 'nullable|string|max:500',
             'org_ids' => 'nullable|string',
             'with_restricted' => 'nullable|in:0,1',
+            'changed_visibility' => 'nullable|in:0,1',
+            'personal_data' => 'nullable|in:0,1',
             'date_start' => 'nullable|date',
             'date_end' => 'nullable|date',
             'sort_by' => 'nullable|in:registration_date,created_at',
@@ -38,6 +41,25 @@ class DocumentApiController extends Controller
 
         if ($request->with_restricted != 1) {
             $query->where('restriction', 'Avalik');
+        }
+
+        // Documents whose source registry has since restricted or removed them.
+        if ($request->changed_visibility == 1) {
+            $query->whereIn('documents.id', function ($sub) {
+                $sub->select('document_id')
+                    ->from('document_remote_states')
+                    ->whereIn('remote_status', [DocumentRemoteState::STATUS_RESTRICTED, DocumentRemoteState::STATUS_GONE]);
+            });
+        }
+
+        // Documents the source registry now restricts because they contain
+        // personal data (AvTS § 35 lg 1 p 12).
+        if ($request->personal_data == 1) {
+            $query->whereIn('documents.id', function ($sub) {
+                $sub->select('document_id')
+                    ->from('document_remote_states')
+                    ->where('personal_data_restriction', true);
+            });
         }
 
         if ($start = $request->date_start) {
@@ -67,7 +89,7 @@ class DocumentApiController extends Controller
                 ->pluck('id');
 
             $items = Document::query()->whereIn('id', $ids)
-                ->with(['organisation'])
+                ->with(['organisation', 'remoteState'])
                 ->get()
                 ->keyBy('id')
                 ->all();
@@ -100,7 +122,7 @@ class DocumentApiController extends Controller
             abort(451, 'This document is access-restricted.');
         }
 
-        $document->load(['organisation', 'files']);
+        $document->load(['organisation', 'files', 'remoteState']);
 
         return response()->json($this->transformDetail($document));
     }
@@ -137,11 +159,31 @@ class DocumentApiController extends Controller
             'responsible' => $d->responsible,
             'url' => $d->url,
             'created_at' => optional($d->created_at)->toIso8601String(),
+            'source_status' => $this->transformSourceStatus($d->remoteState),
             'organisation' => $d->organisation ? [
                 'id' => $d->organisation->id,
                 'name' => $d->organisation->name,
                 'slug' => $d->organisation->slug,
             ] : null,
+        ];
+    }
+
+    /**
+     * What the source registry says about the document now, as recorded by
+     * the periodic re-check. Null when the document has never been checked.
+     */
+    private function transformSourceStatus(?DocumentRemoteState $state): ?array
+    {
+        if ($state === null || $state->remote_status === null) {
+            return null;
+        }
+
+        return [
+            'status' => $state->remote_status,
+            'restriction' => $state->remote_restriction,
+            'restriction_basis' => $state->remote_restriction_basis,
+            'personal_data' => (bool)$state->personal_data_restriction,
+            'checked_at' => optional($state->checked_at)->toIso8601String(),
         ];
     }
 

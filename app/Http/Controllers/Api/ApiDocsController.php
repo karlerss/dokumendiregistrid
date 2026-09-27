@@ -37,6 +37,18 @@ class ApiDocsController extends Controller
                 'responsible' => ['type' => 'string', 'nullable' => true],
                 'url' => ['type' => 'string', 'nullable' => true],
                 'created_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                'source_status' => [
+                    'type' => 'object',
+                    'nullable' => true,
+                    'description' => 'What the source registry says about the document now, from the periodic re-check. `null` if the document has not been re-checked yet.',
+                    'properties' => [
+                        'status' => ['type' => 'string', 'enum' => ['public', 'restricted', 'gone'], 'description' => '`restricted`: the registry now shows an access restriction; `gone`: the registry no longer has the document.'],
+                        'restriction' => ['type' => 'string', 'nullable' => true, 'example' => 'AK', 'description' => 'Restriction marker as shown by the registry.'],
+                        'restriction_basis' => ['type' => 'string', 'nullable' => true, 'example' => 'AvTS § 35 lg 1 p 12', 'description' => 'Legal basis of the restriction as shown by the registry.'],
+                        'personal_data' => ['type' => 'boolean', 'description' => 'The restriction is based on personal data (AvTS § 35 lg 1 p 12).'],
+                        'checked_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    ],
+                ],
                 'organisation' => [
                     'type' => 'object',
                     'nullable' => true,
@@ -98,6 +110,8 @@ class ApiDocsController extends Controller
                             ['name' => 'query', 'in' => 'query', 'schema' => ['type' => 'string'], 'description' => 'FTS5 search expression. Searches title, responsible, series, "to", function, original_id, reference and file contents.'],
                             ['name' => 'org_ids', 'in' => 'query', 'schema' => ['type' => 'string'], 'description' => 'Comma-separated list of organisation IDs to filter by.'],
                             ['name' => 'with_restricted', 'in' => 'query', 'schema' => ['type' => 'integer', 'enum' => [0, 1], 'default' => 0], 'description' => 'When `1`, include access-restricted (AK) documents. Default is `0` (only public/"Avalik").'],
+                            ['name' => 'changed_visibility', 'in' => 'query', 'schema' => ['type' => 'integer', 'enum' => [0, 1], 'default' => 0], 'description' => 'When `1`, only documents that were public when collected but that the source registry has since restricted or removed (`source_status.status` is `restricted` or `gone`).'],
+                            ['name' => 'personal_data', 'in' => 'query', 'schema' => ['type' => 'integer', 'enum' => [0, 1], 'default' => 0], 'description' => 'When `1`, only documents the source registry now restricts because they contain personal data (AvTS § 35 lg 1 p 12; `source_status.personal_data` is `true`).'],
                             ['name' => 'date_start', 'in' => 'query', 'schema' => ['type' => 'string', 'format' => 'date'], 'description' => 'Earliest registration date (inclusive).'],
                             ['name' => 'date_end', 'in' => 'query', 'schema' => ['type' => 'string', 'format' => 'date'], 'description' => 'Latest registration date (inclusive).'],
                             ['name' => 'sort_by', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['registration_date', 'created_at'], 'default' => 'registration_date']],

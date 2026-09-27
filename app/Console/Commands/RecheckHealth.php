@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Lib\Recheck\Heartbeat;
 use App\Mail\RecheckHealthMail;
+use App\Models\PiiExtraction;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
@@ -34,6 +36,20 @@ class RecheckHealth extends Command
             if ($until->gt(now()->addHours(12))) {
                 $problems[] = "Host $host on peatatud kuni {$until->toDateTimeString()} (tõenäoliselt robotkontroll).";
             }
+        }
+
+        // PII pipeline: the scheduler must run pii:enqueue every minute and the
+        // queue worker must drain what it dispatches.
+        $lastEnqueue = Cache::get(PiiEnqueue::KEY_LAST_RUN);
+        if ($lastEnqueue !== null && Carbon::parse($lastEnqueue)->lt(now()->subMinutes(15))) {
+            $problems[] = 'Isikuandmete järjekorrastaja (pii:enqueue) ei ole 15 minutit jooksnud; kontrolli schedule:run cron-i.';
+        }
+        $stuck = PiiExtraction::query()
+            ->where('status', PiiExtraction::STATUS_PENDING)
+            ->where('queued_at', '<', now()->subHours(2))
+            ->count();
+        if ($stuck > 0) {
+            $problems[] = "$stuck isikuandmete ekstraktsiooni on üle 2 tunni järjekorras; kontrolli docregistries-queue teenust.";
         }
 
         $alertedAt = Cache::get(Heartbeat::KEY_STALE_ALERTED);

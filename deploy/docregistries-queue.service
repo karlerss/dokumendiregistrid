@@ -1,0 +1,39 @@
+# systemd unit for the Laravel queue worker (PII extraction, assessment,
+# redaction jobs; QUEUE_CONNECTION=database).
+#
+#   sudo cp deploy/docregistries-queue.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now docregistries-queue
+#   journalctl -u docregistries-queue -f
+#
+# Jobs are only ever *dispatched* by `pii:enqueue` (scheduler, once a minute)
+# and by admin buttons under /haldus/isikuandmed. The scheduler needs this
+# line in the app user's crontab:
+#
+#   * * * * * cd /var/www/dokumendiregistrid && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
+#
+# PDF redaction needs `pip3 install pymupdf`; office conversion needs
+# LibreOffice (`soffice`). Adjust User, WorkingDirectory and paths.
+
+[Unit]
+Description=dokumendiregistrid.karlerss.com queue worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/dokumendiregistrid
+ExecStart=/usr/bin/php artisan queue:work database --sleep=3 --tries=1 --timeout=1800 --max-jobs=200 --max-time=3600 --memory=512
+Restart=always
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=1830
+MemoryMax=1G
+Nice=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

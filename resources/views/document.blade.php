@@ -13,6 +13,14 @@
     <div class="px-4">
         <div class="container mx-auto bg-white mb-8">
             <h1 class="text-3xl mb-4 font-bold">{{ $document->title }}</h1>
+            @if($document->redacted_at)
+                <div class="mb-4">
+                    <x-bladewind.alert type="info" shade="faint">
+                        Dokumendi tekstist on isikuandmete kaitseks eemaldatud eraisikute andmed ({{ $document->redacted_at->format('d.m.Y') }}).
+                        Täielik dokument on kättesaadav algsest dokumendiregistrist.
+                    </x-bladewind.alert>
+                </div>
+            @endif
             @if(session('success'))
                 <div class="mb-4">
                     <x-bladewind.alert type="success">{{ session('success') }}</x-bladewind.alert>
@@ -85,6 +93,29 @@
                                         <span class="text-gray-500">ei kontrollita (allikas piiratud juba kogumisel)</span>
                                     @endif
                                     @unless($document->visible) · <span class="text-red-700">peidetud</span> @endunless
+                                </td>
+                            </tr>
+                        @endif
+                        @if(session('is_admin'))
+                            <tr>
+                                <td class="text-right">Isikuandmed (admin)</td>
+                                <td class="!text-gray-900">
+                                    @php($piiAssessment = $document->latestPiiAssessment)
+                                    @if($piiAssessment)
+                                        <a class="underline" href="{{ route('pii.show', $document) }}">
+                                            <x-bladewind.tag :label="$piiAssessment->bandLabel()" :color="$piiAssessment->bandColor()"/>
+                                            {{ $piiAssessment->recommendationLabel() }}
+                                        </a>
+                                        @if($piiAssessment->extraction)
+                                            <span class="text-gray-500">· {{ $piiAssessment->extraction->subjects->filter(fn($s) => !$s->isKeep())->count() }} eraisikut / {{ $piiAssessment->extraction->subjects->count() }} isikut</span>
+                                        @endif
+                                    @elseif($document->latestPiiExtraction)
+                                        <a class="underline" href="{{ route('pii.show', $document) }}">ekstraktsioon: {{ $document->latestPiiExtraction->statusLabel() }}</a>
+                                    @else
+                                        <form method="post" action="{{ route('pii.extract', $document) }}" class="inline">@csrf
+                                            <button class="underline text-blue-700">Kontrolli isikuandmeid</button>
+                                        </form>
+                                    @endif
                                 </td>
                             </tr>
                         @endif
@@ -267,9 +298,13 @@
                                     <div class="flex px-4 pt-5 pb-3">
                                         <div
                                             class="uppercase tracking-wide text-xs text-gray-500/90 mb-2">
-                                            <a
-                                                class="underline"
-                                                href="{{$file->url}}">{{$file->name}}</a>
+                                            @if($file->url)
+                                                <a
+                                                    class="underline"
+                                                    href="{{$file->url}}">{{$file->name}}</a>
+                                            @else
+                                                <span title="Originaalfail on eemaldatud">{{$file->name}}</span>
+                                            @endif
                                         </div>
                                         <div
                                             class="uppercase tracking-wide text-xs text-gray-500/90 mb-2 ml-auto flex items-center">
@@ -312,6 +347,15 @@
                                 </x-slot:header>
                                 <div class="p-4 pt-2" style="min-height: 90vh">
                                     <div class="primary-content" id="preview-{{$file->id}}">
+                                        @if($file->isWithheld())
+                                            <x-bladewind.alert type="info" shade="faint">Originaalfail on isikuandmete kaitseks eemaldatud. Redigeeritud tekst on saadaval vahekaardil „Tekst“.</x-bladewind.alert>
+                                        @elseif($file->redacted_location)
+                                            @if(\Illuminate\Support\Str::endsWith($file->redacted_location, '.pdf'))
+                                                <iframe src="{{$file->url}}" style="width: 100%; height: 90vh"></iframe>
+                                            @else
+                                                <pre style="white-space: pre-wrap;">{{$file->contents}}</pre>
+                                            @endif
+                                        @else
                                         @switch($file->parsed_with)
                                             @case(\App\Lib\Parser\AsiceParser::class)
                                                 <h3 class="text-bold mb-3">Digiallkirjad</h3>
@@ -360,6 +404,7 @@
                                                 @endif
                                                 @break
                                         @endswitch
+                                        @endif
                                     </div>
                                     <div class="secondary-content" id="text-{{$file->id}}">
                                         @switch($file->parsed_with)

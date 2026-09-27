@@ -14,7 +14,7 @@
 # on SIGTERM). The old and new commits are printed so a deploy is auditable
 # from the terminal scrollback.
 #
-# Override with environment variables: APP_DIR, APP_USER, BRANCH, DAEMON, FPM.
+# Override with environment variables: APP_DIR, APP_USER, BRANCH, DAEMON, QUEUE, FPM.
 
 set -euo pipefail
 
@@ -22,6 +22,7 @@ APP_DIR=${APP_DIR:-/var/www/dokumendiregistrid}
 APP_USER=${APP_USER:-www-data}
 BRANCH=${BRANCH:-main}
 DAEMON=${DAEMON:-docregistries-recheck}
+QUEUE=${QUEUE:-docregistries-queue}
 FPM=${FPM:-php8.2-fpm}
 
 force=0
@@ -91,13 +92,19 @@ as_app php artisan event:clear --quiet 2>/dev/null || true
 log "Reloading $FPM"
 systemctl reload "$FPM"
 
-log "Restarting $DAEMON"
-systemctl restart "$DAEMON"
-sleep 2
-if ! systemctl is-active --quiet "$DAEMON"; then
-    echo "$DAEMON is not running after restart:" >&2
-    systemctl status "$DAEMON" --no-pager | head -15 >&2
-    exit 1
-fi
+for svc in "$DAEMON" "$QUEUE"; do
+    if ! systemctl cat "$svc" >/dev/null 2>&1; then
+        log "$svc is not installed; skipping (see deploy/$svc.service)"
+        continue
+    fi
+    log "Restarting $svc"
+    systemctl restart "$svc"
+    sleep 2
+    if ! systemctl is-active --quiet "$svc"; then
+        echo "$svc is not running after restart:" >&2
+        systemctl status "$svc" --no-pager | head -15 >&2
+        exit 1
+    fi
+done
 
 log "Deployed $(as_app git log --oneline -1)"

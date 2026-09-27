@@ -14,6 +14,11 @@ class File extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'original_withheld' => 'boolean',
+        'redacted_at' => 'datetime',
+    ];
+
     public static function store(string $path): string
     {
         $name = basename($path);
@@ -27,9 +32,21 @@ class File extends Model
 
     }
 
+    /**
+     * Public URL of the file, or null when the original has been withheld by
+     * a PII redaction and no redacted copy exists (yet).
+     */
     public function getUrlAttribute()
     {
+        if ($this->original_withheld) {
+            return $this->redacted_location ? Storage::disk('r2')->url($this->redacted_location) : null;
+        }
         return Storage::disk('r2')->url($this->location);
+    }
+
+    public function isWithheld(): bool
+    {
+        return (bool)$this->original_withheld && !$this->redacted_location;
     }
 
     public function children()
@@ -56,8 +73,17 @@ class File extends Model
             }
             $this->signatures()->delete();
             $location = $this->location;
+            $redacted = $this->redacted_location;
+            $private = $this->original_private_location;
             parent::delete();
-            Storage::disk('r2')->delete($location);
+            if ($private) {
+                Storage::disk('r2_private')->delete($private);
+            } else {
+                Storage::disk('r2')->delete($location);
+            }
+            if ($redacted) {
+                Storage::disk('r2')->delete($redacted);
+            }
         });
     }
 

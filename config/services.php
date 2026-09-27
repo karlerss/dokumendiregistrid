@@ -20,6 +20,7 @@ return [
 
     'openai' => [
         'secret' => env('OPENAI_SECRET'),
+        'model' => env('OPENAI_MODEL', 'gpt-5.4'),
     ],
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),

@@ -64,7 +64,18 @@ return [
             'region' => 'eeur',
             'bucket' => 'adr-docs',
             'throw' => true,
-        ]
+        ],
+        // Originals withheld by PII redaction. No public domain is attached to
+        // this bucket; nothing in it is ever served to visitors.
+        'r2_private' => [
+            'driver' => 's3',
+            'endpoint' => env('R2_ENDPOINT'),
+            'key' => env('R2_KEY'),
+            'secret' => env('R2_SECRET'),
+            'region' => 'eeur',
+            'bucket' => env('R2_PRIVATE_BUCKET', 'adr-docs-private'),
+            'throw' => true,
+        ],
 
     ],
 

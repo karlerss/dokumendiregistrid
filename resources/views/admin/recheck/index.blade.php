@@ -104,6 +104,7 @@
                     <th>Dokument</th>
                     <th>Muutus</th>
                     <th>Alus</th>
+                    <th>Isikuandmed</th>
                     <th>Nähtav</th>
                     <th></th>
                 </x-slot>
@@ -141,6 +142,11 @@
                             {{ $change->basis ?: ($change->to_restriction ?: '—') }}
                             @if($doc?->remoteState?->remote_restriction_change_basis)
                                 <div class="text-gray-500 mt-1">{{ $doc->remoteState->remote_restriction_change_basis }}</div>
+                            @endif
+                        </td>
+                        <td style="max-width: 18vw">
+                            @if($doc)
+                                <x-pii-summary :document="$doc"/>
                             @endif
                         </td>
                         <td class="whitespace-nowrap">
@@ -190,7 +196,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="text-center text-gray-400 py-8">Läbivaatamata muutusi pole.</td>
+                        <td colspan="7" class="text-center text-gray-400 py-8">Läbivaatamata muutusi pole.</td>
                     </tr>
                 @endforelse
             </x-bladewind.table>

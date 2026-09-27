@@ -18,6 +18,7 @@ class Document extends Model
     protected $casts = [
         'registration_date' => 'date',
         'visible' => 'boolean',
+        'redacted_at' => 'datetime',
     ];
 
     /**
@@ -93,6 +94,44 @@ class Document extends Model
     public function takedownRequests()
     {
         return $this->hasMany(TakedownRequest::class);
+    }
+
+    public function piiExtractions()
+    {
+        return $this->hasMany(PiiExtraction::class);
+    }
+
+    /** Most recent extraction at the current prompt version, any status. */
+    public function latestPiiExtraction()
+    {
+        return $this->hasOne(PiiExtraction::class)->ofMany(['id' => 'max'], fn($q) => $q->where('prompt_version', \App\Lib\Pii\Extractor::PROMPT_VERSION));
+    }
+
+    public function piiAssessments()
+    {
+        return $this->hasMany(PiiAssessment::class);
+    }
+
+    /** Most recent assessment (any rules version). */
+    public function latestPiiAssessment()
+    {
+        return $this->hasOne(PiiAssessment::class)->latestOfMany();
+    }
+
+    public function piiRedactions()
+    {
+        return $this->hasMany(PiiRedaction::class);
+    }
+
+    /** The redaction currently in effect, if any. */
+    public function activePiiRedaction(): ?PiiRedaction
+    {
+        return $this->piiRedactions()->whereNull('reverted_at')->where('text_status', PiiRedaction::STATUS_APPLIED)->latest('id')->first();
+    }
+
+    public function isRedacted(): bool
+    {
+        return $this->redacted_at !== null;
     }
 
     public function fullDelete()

@@ -177,3 +177,32 @@ configured registry endpoints — fetcher tests are driven by fixtures under
 Licensed under the [GNU Affero General Public License v3.0](LICENSE)
 (AGPL-3.0). Any modified version — including one offered as a network
 service — must be made available under the same license.
+
+## Personal data (PII) pipeline
+
+Documents that the source registry has since restricted for personal data
+(`AvTS § 35 lg 1 p 12`, detected by the re-check daemon) are run through a
+detection → assessment → manual redaction pipeline. Design and decisions are
+in `pii_plan.md`.
+
+- **Extraction** (`App\Lib\Pii\Extractor`): one strict-JSON-schema model call
+  per document (prompt in `resources/prompts/`), every returned string verified
+  against the document, unattributed personal codes swept in.
+- **Assessment** (`App\Lib\Pii\Rules`): deterministic rules produce a band
+  (INFO / WARN / HIGH), a recommendation and per-subject actions. Advisory only.
+- **Admin UI** at `/haldus/isikuandmed`: review, override a person's context,
+  preview and apply a redaction, revert it, hide or unhide the document.
+- **Redaction** (`App\Lib\Pii\Redactor`): text, HTML, file names, metadata,
+  signatures and the FTS index are rewritten; originals move to the private R2
+  bucket and PDFs get a truly redacted copy (PyMuPDF). Fully revertible.
+
+Nothing is hidden or redacted automatically; the source registry, the model
+and takedown requesters never affect visibility directly.
+
+Runtime pieces:
+
+- `php artisan schedule:run` every minute (cron) → `pii:enqueue` dispatches jobs.
+- `deploy/docregistries-queue.service` runs `queue:work database`.
+- `pip3 install pymupdf`; LibreOffice for office → PDF conversion.
+- `.env`: `OPENAI_MODEL`, `PII_DAILY_TOKEN_CAP`, `R2_PRIVATE_BUCKET`; the R2
+  API token must have access to both buckets.

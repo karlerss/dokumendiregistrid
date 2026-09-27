@@ -6,15 +6,19 @@ use GuzzleHttp\Client;
 
 class Ollama implements AiProvider
 {
-    public function __construct()
+    public function __construct(private string $model = 'qwen2.5:14b', private string $baseUri = 'http://localhost:11434')
     {
-
     }
 
     public function getJson(string $systemPrompt, string $userPrompt, array $jsonSchema): array
     {
+        return $this->getJsonWithUsage($systemPrompt, $userPrompt, $jsonSchema)['data'];
+    }
+
+    public function getJsonWithUsage(string $systemPrompt, string $userPrompt, array $jsonSchema): array
+    {
         $client = new Client([
-            'base_uri' => 'http://localhost:11434',
+            'base_uri' => $this->baseUri,
             'headers' => [
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
@@ -23,8 +27,7 @@ class Ollama implements AiProvider
 
         $res = $client->post('/api/generate', [
             'json' => [
-//                'model' => 'deepseek-r1:14b',
-                'model' => 'qwen2.5:14b',
+                'model' => $this->model,
                 'prompt' => $systemPrompt
                     . PHP_EOL . PHP_EOL . $userPrompt,
                 'format' => $jsonSchema,
@@ -32,8 +35,17 @@ class Ollama implements AiProvider
             ],
         ]);
         $assocRes = json_decode($res->getBody()->getContents(), true);
-        $jsonResponse = $assocRes['response'] ?? [];
+        $jsonResponse = $assocRes['response'] ?? '';
+        $data = json_decode($jsonResponse, true);
+        if (!is_array($data)) {
+            throw new \RuntimeException('Model returned non-JSON content: ' . mb_substr((string)$jsonResponse, 0, 200));
+        }
 
-        return json_decode($jsonResponse, true);
+        return [
+            'data' => $data,
+            'input_tokens' => (int)($assocRes['prompt_eval_count'] ?? 0),
+            'output_tokens' => (int)($assocRes['eval_count'] ?? 0),
+            'model' => $this->model,
+        ];
     }
 }

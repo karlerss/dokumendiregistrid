@@ -29,6 +29,7 @@
                     <th>Dokument</th>
                     <th>Esitaja</th>
                     <th>Õiguslik alus</th>
+                    <th>Isikuandmed</th>
                     <th>Staatus</th>
                     <th>Esitatud</th>
                     <th>Lahendatud</th>
@@ -57,6 +58,13 @@
                             <span class="text-xs text-gray-400 block">{{ $takedownRequest->author_email }}</span>
                         </td>
                         <td style="white-space: nowrap;">{{ $takedownRequest->legal_basis }}</td>
+                        <td style="max-width: 16vw">
+                            @if($takedownRequest->document)
+                                <x-pii-summary :document="$takedownRequest->document"/>
+                            @else
+                                <span class="text-gray-400">—</span>
+                            @endif
+                        </td>
                         <td>
                             <x-bladewind.tag :label="$takedownRequest->statusLabel()"
                                              :color="$takedownRequest->statusColor()"/>
@@ -94,7 +102,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="text-center text-gray-400 py-6">Eemaldamistaotlusi ei ole.</td>
+                        <td colspan="9" class="text-center text-gray-400 py-6">Eemaldamistaotlusi ei ole.</td>
                     </tr>
                 @endforelse
             </x-bladewind.table>

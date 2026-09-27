@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MainController;
+use App\Http\Controllers\PiiController;
 use App\Http\Controllers\RecheckController;
 use App\Http\Controllers\SitemapsController;
 use App\Http\Controllers\TakedownController;
@@ -42,6 +43,17 @@ Route::post('/haldus/kontroll/{change}/kustuta-failid', [RecheckController::clas
 Route::post('/haldus/kontroll/{change}/lae-uuesti', [RecheckController::class, 'refetch'])->name('recheck.refetch');
 Route::post('/haldus/kontroll/{change}/ignoreeri', [RecheckController::class, 'ignore'])->name('recheck.ignore');
 Route::post('/haldus/kontroll/kinnita-koik', [RecheckController::class, 'acknowledgeAll'])->name('recheck.acknowledgeAll');
+
+Route::get('/haldus/isikuandmed', [PiiController::class, 'index'])->name('pii.index');
+Route::get('/haldus/isikuandmed/{document}', [PiiController::class, 'show'])->name('pii.show');
+Route::post('/haldus/isikuandmed/{document}/ekstrakti', [PiiController::class, 'extract'])->name('pii.extract');
+Route::post('/haldus/isikuandmed/{document}/redigeeri', [PiiController::class, 'redact'])->name('pii.redact');
+Route::post('/haldus/isikuandmed/{document}/peida', [PiiController::class, 'hide'])->name('pii.hide');
+Route::post('/haldus/isikuandmed/{document}/naita', [PiiController::class, 'unhide'])->name('pii.unhide');
+Route::post('/haldus/isikuandmed/subjekt/{subject}', [PiiController::class, 'override'])->name('pii.override');
+Route::post('/haldus/isikuandmed/ekstraktsioon/{extraction}/uuesti', [PiiController::class, 'retry'])->name('pii.retry');
+Route::post('/haldus/isikuandmed/hinnang/{assessment}/labivaadatud', [PiiController::class, 'acknowledge'])->name('pii.acknowledge');
+Route::post('/haldus/isikuandmed/redigeerimine/{redaction}/taasta', [PiiController::class, 'revert'])->name('pii.revert');
 
 Route::get('login', [MainController::class, 'login'])->name('login');
 Route::post('login', [MainController::class, 'login']);

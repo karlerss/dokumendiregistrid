@@ -33,6 +33,14 @@
                         @endif
                     </td>
                 </tr>
+                @if($takedownRequest->document)
+                    <tr>
+                        <td class="text-right">Isikuandmed</td>
+                        <td class="!text-gray-900">
+                            <x-pii-summary :document="$takedownRequest->document"/>
+                        </td>
+                    </tr>
+                @endif
                 <tr>
                     <td class="text-right">Originaal URL</td>
                     <td class="!text-gray-900">
@@ -81,6 +89,27 @@
                     <h2 class="text-xl font-bold mb-4">Lahenda taotlus</h2>
 
                     @if($takedownRequest->document)
+                        @php($piiAssessment = $takedownRequest->document->latestPiiAssessment)
+                        <div class="mb-6 border border-gray-200 rounded p-4 text-sm">
+                            <div class="font-semibold mb-1">Redigeerimine eemaldamise asemel</div>
+                            @if($takedownRequest->document->redacted_at)
+                                <p class="text-green-700 mb-2">Dokument on juba redigeeritud ({{ $takedownRequest->document->redacted_at->format('d.m.Y') }}). Rahulda märkusega, kui redigeerimine on piisav.</p>
+                            @elseif($piiAssessment)
+                                <p class="text-gray-500 mb-2">Hinnang: {{ $piiAssessment->bandLabel() }} · {{ $piiAssessment->recommendationLabel() }}. Redigeerimise eelvaade ja rakendamine on isikuandmete vaates.</p>
+                            @elseif($takedownRequest->document->latestPiiExtraction)
+                                <p class="text-gray-500 mb-2">Ekstraktsioon: {{ $takedownRequest->document->latestPiiExtraction->statusLabel() }}. Hinnang ilmub siia, kui töötleja on lõpetanud.</p>
+                            @else
+                                <p class="text-gray-500 mb-2">Isikuandmeid pole veel ekstraheeritud. Ekstraktsioon võtab mõne minuti; seejärel saab dokumendi eraisikute andmed eemaldada ja taotluse märkusega rahuldada.</p>
+                            @endif
+                            <div class="flex gap-2">
+                                @unless($piiAssessment || $takedownRequest->document->latestPiiExtraction)
+                                    <form method="post" action="{{ route('pii.extract', $takedownRequest->document) }}">@csrf
+                                        <x-bladewind.button size="small" color="blue" can_submit="true">Kontrolli isikuandmeid</x-bladewind.button>
+                                    </form>
+                                @endunless
+                                <x-bladewind.button size="small" tag="a" outline="true" href="{{ route('pii.show', $takedownRequest->document) }}">Ava isikuandmete vaade</x-bladewind.button>
+                            </div>
+                        </div>
                         <form action="{{ route('takedowns.accept', $takedownRequest) }}" method="post" class="mb-6">
                             @csrf
                             <input type="hidden" name="remove_document" value="1"/>

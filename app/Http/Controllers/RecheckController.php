@@ -22,7 +22,7 @@ class RecheckController extends Controller
         $showAll = $request->boolean('all');
 
         $changes = DocumentStatusChange::query()
-            ->with(['document.organisation', 'document.remoteState'])
+            ->with(['document.organisation', 'document.remoteState', 'document.latestPiiAssessment.extraction.subjects', 'document.latestPiiExtraction'])
             ->when(!$showAll, fn($q) => $q->unacknowledged())
             ->when($type === 'personal', fn($q) => $q->where('personal_data', true))
             ->when(in_array($type, ['restricted', 'gone', 'public'], true), fn($q) => $q->where('to_status', $type))

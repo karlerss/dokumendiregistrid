@@ -132,7 +132,7 @@ class TakedownController extends Controller
         $excludePublicSector = $request->boolean('exclude_public_sector');
 
         $takedownRequests = TakedownRequest::query()
-            ->with('document')
+            ->with(['document.latestPiiAssessment.extraction.subjects', 'document.latestPiiExtraction'])
             ->when($excludePublicSector, fn($q) => $q->excludingPublicSector())
             ->orderByRaw("case when status in ('unverified', 'pending') then 0 else 1 end")
             ->orderByDesc('created_at')
@@ -153,7 +153,7 @@ class TakedownController extends Controller
     {
         $this->authorizeAdmin();
 
-        $takedownRequest->load('document');
+        $takedownRequest->load(['document.latestPiiAssessment.extraction.subjects', 'document.latestPiiExtraction']);
 
         return view('admin.takedowns.show', [
             'takedownRequest' => $takedownRequest,

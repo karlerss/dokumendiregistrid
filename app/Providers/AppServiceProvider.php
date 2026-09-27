@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Lib\DB\SQLiteGrammar;
+use App\Lib\LLM\AiProvider;
+use App\Lib\LLM\OpenAI;
+use App\Lib\Pii\PdfRedactor;
+use App\Lib\Pii\PyMuPdfRedactor;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -15,7 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Model provider for the PII extraction pipeline; tests bind a fake.
+        $this->app->bind(AiProvider::class, fn() => new OpenAI(config('pii.model')));
+        $this->app->bind(PdfRedactor::class, PyMuPdfRedactor::class);
     }
 
     /**

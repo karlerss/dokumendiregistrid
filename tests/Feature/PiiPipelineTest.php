@@ -281,6 +281,23 @@ class PiiPipelineTest extends TestCase
         $this->assertStringNotContainsString('Maasikas', $doc->fresh()->files->first()->html);
     }
 
+    public function test_enqueue_redispatches_stale_redactions_once(): void
+    {
+        Queue::fake();
+        $doc = $this->document();
+        $r = PiiRedaction::create(['document_id' => $doc->id, 'applied_by' => 'admin', 'plan' => ['replacements' => [], 'files' => []]]);
+        $this->artisan('pii:enqueue')->assertSuccessful();
+        Queue::assertNotPushed(\App\Jobs\RedactDocument::class);
+
+        PiiRedaction::where('id', $r->id)->update(['updated_at' => now()->subHours(2)]);
+        $this->artisan('pii:enqueue')->assertSuccessful();
+        Queue::assertPushed(\App\Jobs\RedactDocument::class, 1);
+        $this->assertSame('stale', $r->fresh()->log[0]['outcome']);
+
+        $this->artisan('pii:enqueue')->assertSuccessful();
+        Queue::assertPushed(\App\Jobs\RedactDocument::class, 1);
+    }
+
     public function test_enqueue_respects_cap_and_admin_requests(): void
     {
         Queue::fake();

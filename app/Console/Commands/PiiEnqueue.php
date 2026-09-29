@@ -4,10 +4,12 @@ namespace App\Console\Commands;
 
 use App\Jobs\AssessDocumentPii;
 use App\Jobs\ExtractDocumentPii;
+use App\Jobs\RedactDocument;
 use App\Lib\Pii\Extractor;
 use App\Lib\Pii\Rules;
 use App\Models\Document;
 use App\Models\PiiExtraction;
+use App\Models\PiiRedaction;
 use App\Models\PiiSubject;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -20,7 +22,9 @@ use Illuminate\Support\Facades\DB;
  *  2. usable extractions without an assessment at the current rules version,
  *     and documents whose subjects were overridden after the last assessment;
  *  3. new automatic extractions from the selection, subject to the daily
- *     token cap (admin-requested rows are dispatched in step 1 regardless).
+ *     token cap (admin-requested rows are dispatched in step 1 regardless);
+ *  4. admin-triggered redactions whose job was lost (still pending long after
+ *     they were created, e.g. the worker died mid-run).
  *
  * Only writes pii_* rows and queue jobs. Nothing visible changes.
  */
@@ -108,13 +112,30 @@ class PiiEnqueue extends Command
             Cache::forever(self::KEY_CAP_HIT, now()->toIso8601String());
         }
 
+        // 4. stale redactions: the job is idempotent (text step only when
+        // pending, file step skips files already moved), so re-dispatching is safe.
+        $staleRedactions = PiiRedaction::query()
+            ->whereNull('reverted_at')
+            ->where(fn($q) => $q->where('text_status', PiiRedaction::STATUS_PENDING)->orWhere('files_status', PiiRedaction::STATUS_PENDING))
+            ->where('updated_at', '<', $requeueAfter)
+            ->orderBy('id')
+            ->limit(20)
+            ->get();
+        foreach ($staleRedactions as $redaction) {
+            if (!$dry) {
+                $redaction->appendLog('requeue', 'stale', ['text' => $redaction->text_status, 'files' => $redaction->files_status]);
+                $redaction->save(); // bumps updated_at so it is not re-dispatched every minute
+                RedactDocument::dispatch($redaction->id);
+            }
+        }
+
         if (!$dry) {
             Cache::forever(self::KEY_LAST_RUN, now()->toIso8601String());
         }
 
         $this->line(sprintf(
-            '%spending re-dispatched: %d, assessments: %d, new extractions: %d, tokens today: %d / %d',
-            $dry ? '[dry-run] ' : '', $pending->count(), $assess->count(), $dispatchedNew, $used, $cap
+            '%spending re-dispatched: %d, assessments: %d, new extractions: %d, stale redactions: %d, tokens today: %d / %d',
+            $dry ? '[dry-run] ' : '', $pending->count(), $assess->count(), $dispatchedNew, $staleRedactions->count(), $used, $cap
         ));
         return self::SUCCESS;
     }

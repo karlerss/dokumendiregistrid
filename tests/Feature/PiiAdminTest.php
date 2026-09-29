@@ -133,6 +133,22 @@ class PiiAdminTest extends TestCase
         Queue::assertPushed(RevertRedaction::class, 1);
     }
 
+    public function test_retry_files_requeues_only_a_failed_file_step(): void
+    {
+        Queue::fake();
+        $doc = $this->doc();
+        $this->assessed($doc);
+        $r = PiiRedaction::create(['document_id' => $doc->id, 'applied_by' => 'admin', 'plan' => ['replacements' => [], 'files' => []],
+            'text_status' => PiiRedaction::STATUS_APPLIED, 'files_status' => PiiRedaction::STATUS_FAILED]);
+        $this->asAdmin()->get(route('pii.show', $doc))->assertOk()->assertSee('Proovi faile uuesti');
+        $this->asAdmin()->post(route('pii.retryFiles', $r))->assertRedirect()->assertSessionHas('success');
+        $this->assertSame(PiiRedaction::STATUS_PENDING, $r->fresh()->files_status);
+        Queue::assertPushed(RedactDocument::class, 1);
+
+        $r->forceFill(['text_status' => PiiRedaction::STATUS_FAILED])->save();
+        $this->asAdmin()->post(route('pii.retryFiles', $r))->assertRedirect()->assertSessionHas('error');
+    }
+
     public function test_hide_and_unhide_are_explicit_admin_actions(): void
     {
         $doc = $this->doc();

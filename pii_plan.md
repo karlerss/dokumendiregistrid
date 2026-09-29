@@ -69,6 +69,12 @@ Implemented as planned with §8's decisions, plus these deviations and facts:
 - `File::url` returns the redacted copy when one exists and `null` when the
   original is withheld; the document page shows a notice instead of the
   iframe/link. `File::delete()` cleans up private and redacted copies too.
+- **No database snapshot before redaction.** The first version made a
+  `VACUUM INTO` copy once a day; with a 27 GB SQLite file that filled the
+  disk on 2026-09-28/29 and was removed. The `before` JSON on the redaction
+  row is the undo record.
+- A failed or partial file step can be re-run from the detail page
+  (**Proovi faile uuesti**); files already moved are skipped.
 - Not done: Tesseract/OCR (scanned PDFs are `needs_ocr` and withheld on
   redaction); cross-document lookups (dropped by decision).
 
@@ -112,7 +118,6 @@ crontab line.
 | LibreOffice | DOCX/RTF/XLSX → PDF so they can be redacted with the same script | already installed (`/usr/bin/soffice`) |
 | Tesseract (optional, later) | scanned PDFs with no text layer cannot be redacted by string search | not installed; such PDFs get `NEEDS_OCR` and their original is withheld instead |
 | Private storage | withheld originals must stop being publicly fetchable; the whole bucket is public | second R2 bucket `adr-docs-private` + `r2_private` disk (no public domain). Redacted copies go to the public bucket under a new random key |
-| DB snapshot | redaction writes to `documents`, `files`, `signatures`, FTS | worker takes a sqlite `.backup` before the first redaction of each day |
 | Cost guard | one call per document; must not run away when the selection grows | per-document token accounting; `PII_DAILY_TOKEN_CAP` env; worker pauses extraction when the cap is hit and the admin page shows it |
 | Prompt/rule versioning | results must be reproducible; version bumps must re-run automatically | `prompt_version`, `schema_version`, `rules_version` columns; the worker re-extracts / re-assesses whatever is behind the current version |
 | Worker health | a dead worker must be noticed | heartbeat row; `app:recheck-health` (already hourly) gains a check for the PII worker |

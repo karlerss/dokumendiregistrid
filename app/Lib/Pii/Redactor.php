@@ -45,8 +45,6 @@ class Redactor
         $replacements = $plan['replacements'] ?? [];
         $fileActions = $plan['files'] ?? [];
 
-        $this->snapshotDatabaseOnce($redaction);
-
         try {
             DB::transaction(function () use ($document, $redaction, $plan, $replacements, $fileActions) {
                 $before = ['document' => [], 'files' => [], 'signatures' => []];
@@ -338,36 +336,6 @@ class Redactor
     }
 
     // -------------------------------------------------------------- helpers
-
-    /**
-     * One SQLite snapshot per day before the first redaction, so a bad
-     * plan can be undone even if revert() is not enough. Best effort.
-     */
-    private function snapshotDatabaseOnce(PiiRedaction $redaction): void
-    {
-        if (app()->runningUnitTests() || DB::connection()->getDriverName() !== 'sqlite') {
-            return;
-        }
-        $key = 'pii.snapshot_on';
-        $today = now()->toDateString();
-        if (\Illuminate\Support\Facades\Cache::get($key) === $today) {
-            return;
-        }
-        try {
-            $dir = storage_path('backups');
-            if (!is_dir($dir)) {
-                mkdir($dir, 0775, true);
-            }
-            $path = $dir . '/pii-' . $today . '.sqlite';
-            if (!file_exists($path)) {
-                DB::statement("VACUUM INTO " . DB::getPdo()->quote($path));
-            }
-            \Illuminate\Support\Facades\Cache::forever($key, $today);
-            $redaction->appendLog('snapshot', 'ok', ['path' => $path]);
-        } catch (\Throwable $e) {
-            $redaction->appendLog('snapshot', 'failed', ['error' => mb_substr($e->getMessage(), 0, 300)]);
-        }
-    }
 
     private function tempDir(): string
     {

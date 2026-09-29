@@ -265,6 +265,20 @@ class PiiController extends Controller
         return back()->with('success', 'Redigeerimine on järjekorda pandud. Tekst asendatakse esimesena, failid seejärel.');
     }
 
+    /** Re-run the file step of a redaction whose text step succeeded. */
+    public function retryFiles(PiiRedaction $redaction)
+    {
+        $this->authorizeAdmin();
+        if ($redaction->isReverted() || $redaction->text_status !== PiiRedaction::STATUS_APPLIED) {
+            return back()->with('error', 'Failide sammu saab korrata ainult kehtival redigeerimisel, mille tekstisamm õnnestus.');
+        }
+        $redaction->files_status = PiiRedaction::STATUS_PENDING;
+        $redaction->appendLog('file', 'retry_requested', []);
+        $redaction->save();
+        RedactDocument::dispatch($redaction->id);
+        return back()->with('success', 'Failide samm pannakse uuesti järjekorda.');
+    }
+
     public function revert(PiiRedaction $redaction)
     {
         $this->authorizeAdmin();

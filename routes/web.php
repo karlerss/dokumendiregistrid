@@ -54,6 +54,7 @@ Route::post('/haldus/isikuandmed/subjekt/{subject}', [PiiController::class, 'ove
 Route::post('/haldus/isikuandmed/ekstraktsioon/{extraction}/uuesti', [PiiController::class, 'retry'])->name('pii.retry');
 Route::post('/haldus/isikuandmed/hinnang/{assessment}/labivaadatud', [PiiController::class, 'acknowledge'])->name('pii.acknowledge');
 Route::post('/haldus/isikuandmed/redigeerimine/{redaction}/taasta', [PiiController::class, 'revert'])->name('pii.revert');
+Route::post('/haldus/isikuandmed/redigeerimine/{redaction}/failid-uuesti', [PiiController::class, 'retryFiles'])->name('pii.retryFiles');
 
 Route::get('login', [MainController::class, 'login'])->name('login');
 Route::post('login', [MainController::class, 'login']);

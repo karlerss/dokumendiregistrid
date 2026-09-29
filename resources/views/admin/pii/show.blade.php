@@ -204,9 +204,16 @@
                             <pre class="whitespace-pre-wrap">{{ json_encode($active->log, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                         </details>
                         @unless($active->isInProgress())
-                            <form method="post" action="{{ route('pii.revert', $active) }}" class="mt-3" onsubmit="return confirm('Taasta algne tekst ja failid?')">@csrf
-                                <x-bladewind.button size="small" color="red" can_submit="true">Taasta</x-bladewind.button>
-                            </form>
+                            <div class="flex gap-2 mt-3">
+                                @if(in_array($active->files_status, [\App\Models\PiiRedaction::STATUS_FAILED, \App\Models\PiiRedaction::STATUS_PARTIAL], true))
+                                    <form method="post" action="{{ route('pii.retryFiles', $active) }}">@csrf
+                                        <x-bladewind.button size="small" color="blue" can_submit="true">Proovi faile uuesti</x-bladewind.button>
+                                    </form>
+                                @endif
+                                <form method="post" action="{{ route('pii.revert', $active) }}" onsubmit="return confirm('Taasta algne tekst ja failid?')">@csrf
+                                    <x-bladewind.button size="small" color="red" can_submit="true">Taasta</x-bladewind.button>
+                                </form>
+                            </div>
                         @endunless
                     </div>
                 @elseif($plan)

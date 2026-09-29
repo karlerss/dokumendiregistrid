@@ -469,7 +469,7 @@ detail without redaction) → §6 text step → §6 file step → §5 preview/ap
 
 ## 8. Decisions from review (2026-09-27)
 
-1. Daily token cap defaults to enough for ~100 documents/day.
+1. Daily token cap defaults to 2M tokens (~200 documents/day; raised from 1M on 2026-09-29).
 2. The cap stops only the automatic selection; admin-requested extractions
    always run.
 3. `V. S. (1)` / `V. S. (2)` for shared initials.

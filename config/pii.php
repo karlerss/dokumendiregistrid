@@ -21,7 +21,7 @@ return [
 
     // Tokens (input + output) the automatic selection may spend per UTC day.
     // Admin-requested extractions are not counted against it. ~100 documents.
-    'daily_token_cap' => (int)env('PII_DAILY_TOKEN_CAP', 1000000),
+    'daily_token_cap' => (int)env('PII_DAILY_TOKEN_CAP', 2000000),
 
     // Automatic extractions dispatched per pii:enqueue run (once a minute).
     'enqueue_batch' => (int)env('PII_ENQUEUE_BATCH', 5),

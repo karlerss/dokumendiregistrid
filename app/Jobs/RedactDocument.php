@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Lib\Compliance\ReviewQueue;
 use App\Lib\Pii\Redactor;
 use App\Models\PiiRedaction;
 use Illuminate\Bus\Queueable;
@@ -33,6 +34,8 @@ class RedactDocument implements ShouldQueue
         }
         if ($redaction->text_status === PiiRedaction::STATUS_PENDING) {
             if (!$redactor->applyText($redaction)) {
+                // Nothing changed: the decision needs to be made again.
+                app(ReviewQueue::class)->reopenAfterFailedRedaction($redaction->fresh());
                 return;
             }
         }

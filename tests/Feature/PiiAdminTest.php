@@ -168,6 +168,25 @@ class PiiAdminTest extends TestCase
         $this->assertSame(1, PiiRedaction::count());
     }
 
+    public function test_batch_can_target_warn_and_both_bands(): void
+    {
+        Queue::fake();
+        $warn = $this->doc();
+        $this->assertSame(PiiAssessment::BAND_WARN, $this->assessed($warn)->band);
+        $high = Document::create(['organisation_id' => $this->org->id, 'url' => 'https://adr.rik.ee/som/dokument/2', 'original_id' => '2',
+            'title' => 'Teine', 'reference' => 'R', 'registration_date' => '2024-01-01', 'type' => 'Kiri', 'restriction' => 'Avalik']);
+        File::create(['document_id' => $high->id, 'name' => 'k.pdf', 'location' => 'x/k.pdf', 'contents' => 'Tere Mari Maasikas, siin on pikem tekst mis ületab viiskümmend märki kindlasti.']);
+        $this->assessed($high)->forceFill(['band' => PiiAssessment::BAND_HIGH])->save();
+
+        $this->artisan('compliance:redact-high-risk', ['--band' => ['bogus']])->assertFailed();
+
+        $this->artisan('compliance:redact-high-risk', ['--apply' => true, '--band' => ['warn']])->assertSuccessful();
+        $this->assertSame([$warn->id], PiiRedaction::pluck('document_id')->all(), 'WARN only');
+
+        $this->artisan('compliance:redact-high-risk', ['--apply' => true, '--band' => ['HIGH', 'WARN']])->assertSuccessful();
+        $this->assertEqualsCanonicalizing([$warn->id, $high->id], PiiRedaction::pluck('document_id')->all(), 'both; WARN not redacted twice');
+    }
+
     public function test_redact_creates_plan_and_dispatches_only_once(): void
     {
         Queue::fake();

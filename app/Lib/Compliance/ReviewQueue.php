@@ -2,6 +2,7 @@
 
 namespace App\Lib\Compliance;
 
+use App\Models\PiiRedaction;
 use App\Models\TakedownRequest;
 use App\Models\PiiAssessment;
 use App\Models\DocumentStatusChange;
@@ -138,6 +139,55 @@ class ReviewQueue
                 throw $e;
             }
         }
+    }
+
+    /**
+     * A redaction whose text step failed changed nothing, so the "redact"
+     * decision did not take effect: reopen the item for a new decision and
+     * log why (the planned strings still found, or the error).
+     */
+    public function reopenAfterFailedRedaction(PiiRedaction $redaction): ?ReviewItem
+    {
+        $item = ReviewItem::query()
+            ->where('document_id', $redaction->document_id)
+            ->where('status', ReviewItem::STATUS_DECIDED)
+            ->where('decision', ReviewItem::DECISION_REDACT)
+            ->latest('id')
+            ->first();
+        if (!$item) {
+            return null;
+        }
+
+        $failure = collect($redaction->log ?? [])->last(fn($e) => ($e['step'] ?? null) === 'text' && ($e['outcome'] ?? null) === 'failed') ?? [];
+        return $this->writeTransaction(function () use ($item, $redaction, $failure) {
+            ComplianceAction::create([
+                'review_item_id' => $item->id,
+                'document_id' => $item->document_id,
+                'effect' => 'redaction_failed',
+                'actor' => 'queue',
+                'result' => array_filter([
+                    'redaction_id' => $redaction->id,
+                    'leftover' => array_column($failure['leftover'] ?? [], 'surface') ?: null,
+                    'error' => $failure['error'] ?? null,
+                ]),
+            ]);
+            ComplianceAction::create([
+                'review_item_id' => $item->id,
+                'document_id' => $item->document_id,
+                'effect' => 'reopened',
+                'actor' => 'queue',
+                'result' => ['previous_decision' => ReviewItem::DECISION_REDACT, 'why' => "redigeerimine #{$redaction->id} ebaõnnestus; midagi ei muudetud"],
+            ]);
+            $item->forceFill([
+                'status' => ReviewItem::STATUS_OPEN,
+                'decision' => null,
+                'decision_reason' => null,
+                'decision_reference' => null,
+                'decided_by' => null,
+                'decided_at' => null,
+            ])->save();
+            return $item;
+        });
     }
 
     // ---------------------------------------------------- per-source flags

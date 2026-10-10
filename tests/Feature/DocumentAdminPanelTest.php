@@ -87,6 +87,27 @@ class DocumentAdminPanelTest extends TestCase
         $this->assertSame(['Mari Maasikas'], array_column(\App\Models\PiiRedaction::sole()->plan['replacements'], 'surface'));
     }
 
+    public function test_a_redaction_that_fails_reopens_its_item(): void
+    {
+        // "Mari" is replaced as a word, but "Marimaa" still contains it: the
+        // redactor's leftover check fails and rolls the text step back.
+        File::create(['document_id' => $this->doc->id, 'name' => 'lisa.txt', 'location' => 'K/lisa.txt', 'contents' => 'Mari elab Marimaa talus.']);
+
+        $this->admin()->post(route('document.decide', $this->doc), ['decision' => 'redact', 'reason' => 'Eraisiku nimi.', 'strings' => 'Mari'])
+            ->assertSessionHas('success');
+
+        $redaction = \App\Models\PiiRedaction::sole();
+        $this->assertSame('failed', $redaction->text_status);
+        $this->assertStringContainsString('Mari elab', File::where('name', 'lisa.txt')->value('contents'), 'nothing changed');
+
+        $item = ReviewItem::where('document_id', $this->doc->id)->sole();
+        $this->assertTrue($item->isOpen(), 'the decision did not take effect, so it is open again');
+        $this->assertNull($item->decision);
+        $failed = ComplianceAction::where('review_item_id', $item->id)->where('effect', 'redaction_failed')->sole();
+        $this->assertSame(['Mari'], $failed->result['leftover']);
+        $this->assertTrue(ComplianceAction::where('review_item_id', $item->id)->where('effect', 'reopened')->exists());
+    }
+
     public function test_keep_can_be_overridden_by_a_later_decision(): void
     {
         $this->admin()->post(route('document.decide', $this->doc), ['decision' => 'keep', 'reason' => 'Ametnik tööülesannetes.'])->assertSessionHas('success');

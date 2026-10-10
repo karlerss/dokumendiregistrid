@@ -107,7 +107,7 @@ class Decider
                 ? $this->remover->removeDocument($item->document, $item, $actor)
                 : $this->remover->removeOrphanObject($item->file_key, $item, $actor);
         } elseif ($decision === ReviewItem::DECISION_REDACT) {
-            $this->startRedaction($item, $plan['effects'], $actor);
+            $redaction = $this->startRedaction($item, $plan['effects'], $actor);
         } else {
             $ids = $plan['effects']['acknowledges_status_changes'];
             if ($ids) {
@@ -136,6 +136,13 @@ class Decider
             'decided_by' => $actor,
             'decided_at' => now(),
         ])->save();
+
+        // Only now: a failing redaction reopens the decided item, so the
+        // decision must be saved before the job can run (sync queues run it
+        // immediately).
+        if (isset($redaction)) {
+            RedactDocument::dispatch($redaction->id);
+        }
 
         return $item;
     }
@@ -239,7 +246,7 @@ class Decider
         return array_values(array_filter($strings, fn($s) => !$grounding->occurs($s) && !$sources->occurs($s)));
     }
 
-    private function startRedaction(ReviewItem $item, array $effects, string $actor): void
+    private function startRedaction(ReviewItem $item, array $effects, string $actor): PiiRedaction
     {
         $plan = $effects['plan'];
         $redaction = PiiRedaction::create([
@@ -265,7 +272,7 @@ class Decider
             'actor' => $actor,
             'result' => ['redaction_id' => $redaction->id, 'replacements' => count($plan['replacements']), 'files' => array_count_values(array_column($plan['files'], 'action'))],
         ]);
-        RedactDocument::dispatch($redaction->id);
+        return $redaction;
     }
 
     private function planId(ReviewItem $item, string $decision, array $effects): string

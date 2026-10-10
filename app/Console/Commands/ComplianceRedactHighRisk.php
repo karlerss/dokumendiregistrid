@@ -14,7 +14,8 @@ use Illuminate\Console\Command;
 
 /**
  * One-off batch decision: redact every document whose current PII
- * assessment is HIGH, using that assessment's plan. Each document still
+ * assessment is in the chosen band(s) (HIGH by default; --band=WARN or
+ * both), using that assessment's plan. Each document still
  * gets its own recorded "redact" decision (review item, reason, actor,
  * audit log) exactly as if decided in /haldus; the redaction runs on the
  * queue worker. Dry run unless --apply.
@@ -27,10 +28,14 @@ class ComplianceRedactHighRisk extends Command
         {--apply : Carry out the redactions (default: dry run)}
         {--reason=Tuvastati ebaproportsionaalne risk eraelu puutumatusele. : Reason recorded on every decision}
         {--reference= : Optional reference recorded on every decision}
-        {--include-reviewed : Also redact documents whose HIGH assessment was already reviewed}
+        {--band=* : Assessment band(s) to redact: HIGH (default), WARN, or both (--band=HIGH --band=WARN)}
+        {--include-reviewed : Also redact documents whose assessment was already reviewed}
         {--limit=0 : Stop after this many redactions (0 = no limit)}';
 
-    protected $description = 'Redact all documents whose current PII assessment is HIGH, as one recorded decision per document';
+    /** @var string[] */
+    private array $bands = [PiiAssessment::BAND_HIGH];
+
+    protected $description = 'Redact all documents whose current PII assessment is HIGH (or WARN with --band), as one recorded decision per document';
 
     public function handle(AdminActions $admin): int
     {
@@ -42,8 +47,16 @@ class ComplianceRedactHighRisk extends Command
             $this->error('A reason is required.');
             return self::FAILURE;
         }
+        $bands = array_values(array_unique(array_map('strtoupper', $this->option('band') ?: [PiiAssessment::BAND_HIGH])));
+        $unknown = array_diff($bands, [PiiAssessment::BAND_HIGH, PiiAssessment::BAND_WARN]);
+        if ($unknown) {
+            $this->error('Unknown band: ' . implode(', ', $unknown) . ' (use HIGH and/or WARN).');
+            return self::FAILURE;
+        }
+        $this->bands = $bands;
+        $this->info('Tasemed: ' . implode(', ', $bands));
 
-        $documentIds = PiiAssessment::query()->where('band', PiiAssessment::BAND_HIGH)->distinct()->pluck('document_id');
+        $documentIds = PiiAssessment::query()->whereIn('band', $bands)->distinct()->pluck('document_id');
         $rows = [];
         $counts = ['redact' => 0, 'skipped' => 0, 'failed' => 0];
         $planner = new RedactionPlanner();
@@ -62,14 +75,14 @@ class ComplianceRedactHighRisk extends Command
             }
             [$skip, $assessment, $plan] = $this->candidate($document, $planner);
             if ($skip) {
-                $rows[] = [$document->id, $this->title($document), '—', '—', "jäetud vahele: $skip"];
+                $rows[] = [$document->id, $this->title($document), '—', '—', '—', "jäetud vahele: $skip"];
                 $counts['skipped']++;
                 continue;
             }
 
             $files = collect($plan['files'])->countBy('action')->map(fn($n, $a) => "{$a}×{$n}")->implode(', ');
             if (!$apply) {
-                $rows[] = [$document->id, $this->title($document), count($plan['replacements']), $files, 'redigeeritakse'];
+                $rows[] = [$document->id, $this->title($document), $assessment->band, count($plan['replacements']), $files, 'redigeeritakse'];
                 $counts['redact']++;
                 continue;
             }
@@ -87,15 +100,15 @@ class ComplianceRedactHighRisk extends Command
                     [],
                     self::ACTOR,
                 );
-                $rows[] = [$document->id, $this->title($document), count($plan['replacements']), $files, 'järjekorras'];
+                $rows[] = [$document->id, $this->title($document), $assessment->band, count($plan['replacements']), $files, 'järjekorras'];
                 $counts['redact']++;
             } catch (DecisionException $e) {
-                $rows[] = [$document->id, $this->title($document), count($plan['replacements']), $files, 'viga: ' . $e->getMessage()];
+                $rows[] = [$document->id, $this->title($document), $assessment->band, count($plan['replacements']), $files, 'viga: ' . $e->getMessage()];
                 $counts['failed']++;
             }
         }
 
-        $this->table(['Dokument', 'Pealkiri', 'Asendusi', 'Failid', 'Tulemus'], $rows);
+        $this->table(['Dokument', 'Pealkiri', 'Tase', 'Asendusi', 'Failid', 'Tulemus'], $rows);
         $this->info(sprintf('%s: %d redigeeritakse, %d jäetud vahele, %d vigu. Põhjus: „%s“',
             $apply ? 'Tehtud' : 'Kuivkäivitus (midagi ei muudetud; lisa --apply)',
             $counts['redact'], $counts['skipped'], $counts['failed'], $reason));
@@ -118,8 +131,8 @@ class ComplianceRedactHighRisk extends Command
         }
         $extraction = Assessor::latestUsableExtraction($document);
         $assessment = $extraction ? PiiAssessment::query()->where('extraction_id', $extraction->id)->latest('id')->first() : null;
-        if (!$assessment || $assessment->band !== PiiAssessment::BAND_HIGH) {
-            return ['kehtiv hinnang pole enam HIGH', null, null];
+        if (!$assessment || !in_array($assessment->band, $this->bands, true)) {
+            return ['kehtiv hinnang pole enam valitud tasemel (' . ($assessment->band ?? 'puudub') . ')', null, null];
         }
         if ($assessment->isReviewed() && !$this->option('include-reviewed')) {
             return ["hinnang juba läbi vaadatud ({$assessment->review_action})", null, null];

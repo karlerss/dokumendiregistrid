@@ -334,10 +334,11 @@ class TakedownTest extends TestCase
         ]));
 
         $this->withSession(['is_admin' => true])
+            ->from(route('document', ['document' => $document->id]))
             ->post(route('takedowns.accept', $request), [
                 'resolution_note' => 'Rahuldatud.',
             ])
-            ->assertRedirect(route('takedowns.index'));
+            ->assertRedirect(route('document', ['document' => $document->id]));
 
         $request->refresh();
         $this->assertSame(TakedownRequest::STATUS_ACCEPTED, $request->status);
@@ -355,16 +356,73 @@ class TakedownTest extends TestCase
         ]));
 
         $this->withSession(['is_admin' => true])
+            ->from(route('document', ['document' => $document->id]))
             ->post(route('takedowns.accept', $request), [
                 'remove_document' => '1',
             ])
-            ->assertRedirect(route('takedowns.index'));
+            ->assertRedirect(route('document', ['document' => $document->id]));
 
         $request->refresh();
         $this->assertSame(TakedownRequest::STATUS_ACCEPTED, $request->status);
-        $this->assertNull($request->document_id);
-        $this->assertNull(Document::find($document->id));
+        // Removed, not deleted: the row stays so the document is not re-ingested.
+        $this->assertSame($document->id, $request->document_id);
+        $this->assertTrue(Document::find($document->id)->isRemoved());
+        $item = \App\Models\ReviewItem::where('document_id', $document->id)->sole();
+        $this->assertSame('remove', $item->decision);
+        $this->assertSame("eemaldamistaotlus #{$request->id}", $item->decision_reference);
         Mail::assertSent(TakedownAcceptedRemovedMail::class);
+    }
+
+    /** @test */
+    public function admin_can_accept_by_redacting_personal_data(): void
+    {
+        Mail::fake();
+        \Illuminate\Support\Facades\Queue::fake();
+        $document = $this->makeDocument();
+        \App\Models\File::create(['document_id' => $document->id, 'name' => 'kiri.txt', 'location' => 'K/kiri.txt', 'contents' => 'Taotleja Mari Maasikas, Tamme 5.']);
+        $request = $document->takedownRequests()->create($this->storeData([
+            'status' => TakedownRequest::STATUS_PENDING,
+        ]));
+
+        $this->withSession(['is_admin' => true])
+            ->from(route('document', ['document' => $document->id]))
+            ->post(route('takedowns.accept', $request), [
+                'action' => 'redact',
+                'resolution_note' => 'Teie nimi ja aadress eemaldati dokumendist.',
+                'strings' => "Mari Maasikas\nTamme 5",
+            ])
+            ->assertRedirect(route('document', ['document' => $document->id]))
+            ->assertSessionHas('success');
+
+        $request->refresh();
+        $this->assertSame(TakedownRequest::STATUS_ACCEPTED, $request->status);
+        $this->assertSame('Teie nimi ja aadress eemaldati dokumendist.', $request->resolution_note);
+        $item = \App\Models\ReviewItem::where('document_id', $document->id)->sole();
+        $this->assertSame('redact', $item->decision);
+        $this->assertSame('takedown', $item->flags[0]['source']);
+        $redaction = \App\Models\PiiRedaction::sole();
+        $this->assertEqualsCanonicalizing(['Mari Maasikas', 'Tamme 5'], array_column($redaction->plan['replacements'], 'surface'));
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\RedactDocument::class);
+        $this->assertTrue($document->fresh()->visible, 'redaction keeps the document published');
+        Mail::assertSent(TakedownAcceptedMail::class);
+    }
+
+    /** @test */
+    public function redacting_a_takedown_needs_a_reply_and_something_to_redact(): void
+    {
+        Mail::fake();
+        $document = $this->makeDocument();
+        $request = $document->takedownRequests()->create($this->storeData(['status' => TakedownRequest::STATUS_PENDING]));
+
+        $this->withSession(['is_admin' => true])->from(route('document', ['document' => $document->id]))
+            ->post(route('takedowns.accept', $request), ['action' => 'redact'])
+            ->assertSessionHasErrors('resolution_note');
+        $this->withSession(['is_admin' => true])->from(route('document', ['document' => $document->id]))
+            ->post(route('takedowns.accept', $request), ['action' => 'redact', 'resolution_note' => 'x'])
+            ->assertSessionHas('error');
+
+        $this->assertSame(TakedownRequest::STATUS_PENDING, $request->fresh()->status, 'nothing resolved when the redaction cannot run');
+        Mail::assertNothingSent();
     }
 
     /** @test */
@@ -377,10 +435,11 @@ class TakedownTest extends TestCase
         ]));
 
         $this->withSession(['is_admin' => true])
+            ->from(route('document', ['document' => $document->id]))
             ->post(route('takedowns.deny', $request), [
                 'resolution_note' => 'Põhjendamata.',
             ])
-            ->assertRedirect(route('takedowns.index'));
+            ->assertRedirect(route('document', ['document' => $document->id]));
 
         $request->refresh();
         $this->assertSame(TakedownRequest::STATUS_DENIED, $request->status);

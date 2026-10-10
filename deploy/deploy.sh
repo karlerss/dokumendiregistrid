@@ -8,7 +8,8 @@
 #
 # Fast-forwards the checkout to origin/main as the app user, then runs only
 # the steps the changed files call for: composer install when composer.lock
-# changed, npm ci + vite build when package-lock.json changed, migrations
+# changed, npm ci + vite build when package-lock.json changed (vite build
+# alone when views/css/js changed, since Tailwind scans them), migrations
 # when database/migrations changed. Caches are always cleared, php-fpm is
 # reloaded and the re-check daemon restarted (it finishes its current probe
 # on SIGTERM). The old and new commits are printed so a deploy is auditable
@@ -75,6 +76,10 @@ fi
 if grep -qx 'package-lock.json' <<<"$changed"; then
     log "package-lock.json changed: building front-end assets"
     as_app npm ci --no-audit --no-fund
+    as_app npm run build
+elif grep -qE '^resources/(views|css|js)/' <<<"$changed"; then
+    # Tailwind builds only the classes the views use: rebuild on view changes.
+    log "Views or assets changed: rebuilding front-end assets"
     as_app npm run build
 fi
 

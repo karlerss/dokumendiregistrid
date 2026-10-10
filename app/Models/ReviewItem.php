@@ -25,6 +25,7 @@ class ReviewItem extends Model
     public const SOURCE_RECHECK = 'recheck';
     public const SOURCE_TAKEDOWN = 'takedown';
     public const SOURCE_PII = 'pii';
+    public const SOURCE_ADMIN = 'haldus'; // a decision taken directly in /haldus
 
     // Lower is more urgent.
     public const PRIORITY_NAMED = 1;         // personal-data restriction, letter, takedown

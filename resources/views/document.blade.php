@@ -26,15 +26,9 @@
                     <x-bladewind.alert type="success">{{ session('success') }}</x-bladewind.alert>
                 </div>
             @endif
-            @if(session('is_admin'))
-                <div class="flex">
-                    <form action="{{route('document.destroy', $document)}}" method="post" class="mr-2">
-                        @method('DELETE')
-                        @csrf
-                        <x-bladewind.button size="tiny" can_submit="true">
-                            <x-bladewind.icon name="trash"/>
-                        </x-bladewind.button>
-                    </form>
+            @if(session('error'))
+                <div class="mb-4">
+                    <x-bladewind.alert type="error">{{ session('error') }}</x-bladewind.alert>
                 </div>
             @endif
 
@@ -102,7 +96,7 @@
                                 <td class="!text-gray-900">
                                     @php($piiAssessment = $document->latestPiiAssessment)
                                     @if($piiAssessment)
-                                        <a class="underline" href="{{ route('pii.show', $document) }}">
+                                        <a class="underline" href="#isikuandmed">
                                             <x-bladewind.tag :label="$piiAssessment->bandLabel()" :color="$piiAssessment->bandColor()"/>
                                             {{ $piiAssessment->recommendationLabel() }}
                                         </a>
@@ -110,7 +104,7 @@
                                             <span class="text-gray-500">· {{ $piiAssessment->extraction->subjects->filter(fn($s) => !$s->isKeep())->count() }} eraisikut / {{ $piiAssessment->extraction->subjects->count() }} isikut</span>
                                         @endif
                                     @elseif($document->latestPiiExtraction)
-                                        <a class="underline" href="{{ route('pii.show', $document) }}">ekstraktsioon: {{ $document->latestPiiExtraction->statusLabel() }}</a>
+                                        <a class="underline" href="#isikuandmed">ekstraktsioon: {{ $document->latestPiiExtraction->statusLabel() }}</a>
                                     @else
                                         <form method="post" action="{{ route('pii.extract', $document) }}" class="inline">@csrf
                                             <button class="underline text-blue-700">Kontrolli isikuandmeid</button>
@@ -153,6 +147,9 @@
                     </x-bladewind.table>
                 </div>
                 <div class="md:col-span-1 col-span-2">
+                    @if($admin ?? null)
+                        @include('admin.document-panel')
+                    @endif
                     <div class="container mx-auto bg-white mb-8">
                         <x-bladewind.modal
                             name="takedown-request"

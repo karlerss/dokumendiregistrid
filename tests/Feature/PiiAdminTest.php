@@ -82,9 +82,11 @@ class PiiAdminTest extends TestCase
         $this->asAdmin()->get(route('pii.index'))->assertOk()->assertSee('Kiri Mari Maasikale')->assertSee('Hoiatus');
         $this->asAdmin()->get(route('pii.index', ['group' => 1]))->assertOk()->assertSee('SOM');
         $this->asAdmin()->get(route('pii.index', ['band' => 'HIGH']))->assertOk()->assertDontSee('Kiri Mari Maasikale');
-        $this->asAdmin()->get(route('pii.show', $doc))->assertOk()
+        // The PII detail now lives in the document page's admin panel.
+        $this->asAdmin()->get(route('pii.show', $doc))->assertRedirect(route('document', ['document' => $doc->id]) . '#isikuandmed');
+        $this->asAdmin()->get(route('document', $doc))->assertOk()
             ->assertSee('Mari Maasikas')
-            ->assertSee('Rakenda redigeerimine')
+            ->assertSee('Redigeerimise plaan')
             ->assertSee('M. M.');
     }
 
@@ -128,7 +130,7 @@ class PiiAdminTest extends TestCase
         Queue::assertPushed(RedactDocument::class, 1);
 
         $r->forceFill(['text_status' => PiiRedaction::STATUS_APPLIED, 'files_status' => PiiRedaction::STATUS_APPLIED])->save();
-        $this->asAdmin()->get(route('pii.show', $doc))->assertOk()->assertSee('Taasta');
+        $this->asAdmin()->get(route('document', $doc))->assertOk()->assertSee('Taasta');
         $this->asAdmin()->post(route('pii.revert', $r))->assertRedirect();
         Queue::assertPushed(RevertRedaction::class, 1);
     }
@@ -140,7 +142,7 @@ class PiiAdminTest extends TestCase
         $this->assessed($doc);
         $r = PiiRedaction::create(['document_id' => $doc->id, 'applied_by' => 'admin', 'plan' => ['replacements' => [], 'files' => []],
             'text_status' => PiiRedaction::STATUS_APPLIED, 'files_status' => PiiRedaction::STATUS_FAILED]);
-        $this->asAdmin()->get(route('pii.show', $doc))->assertOk()->assertSee('Proovi faile uuesti');
+        $this->asAdmin()->get(route('document', $doc))->assertOk()->assertSee('Proovi faile uuesti');
         $this->asAdmin()->post(route('pii.retryFiles', $r))->assertRedirect()->assertSessionHas('success');
         $this->assertSame(PiiRedaction::STATUS_PENDING, $r->fresh()->files_status);
         Queue::assertPushed(RedactDocument::class, 1);

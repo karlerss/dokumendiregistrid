@@ -6,6 +6,10 @@ use App\Lib\Recheck\Heartbeat;
 use App\Models\Document;
 use App\Models\DocumentRemoteState;
 use App\Models\DocumentStatusChange;
+use App\Lib\Compliance\AdminActions;
+use App\Lib\Compliance\DecisionException;
+use App\Models\ComplianceAction;
+use App\Models\ReviewItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -69,74 +73,99 @@ class RecheckController extends Controller
         ]);
     }
 
-    public function acknowledge(DocumentStatusChange $change)
+    public function acknowledge(DocumentStatusChange $change, AdminActions $admin)
     {
         $this->authorizeAdmin();
         $change->acknowledge();
+        $admin->log($change->document, 'status_change_acknowledged', $this->changeFacts($change));
         return back()->with('success', 'Muutus märgiti läbivaadatuks.');
     }
 
-    public function ignore(DocumentStatusChange $change)
+    public function ignore(DocumentStatusChange $change, AdminActions $admin)
     {
         $this->authorizeAdmin();
         $change->acknowledge(DocumentStatusChange::ACTION_IGNORED);
+        $admin->log($change->document, 'status_change_ignored', $this->changeFacts($change));
         return back()->with('success', 'Muutus ignoreeritud.');
     }
 
-    public function hide(DocumentStatusChange $change)
+    public function hide(DocumentStatusChange $change, AdminActions $admin)
     {
         $this->authorizeAdmin();
         $document = $change->document;
         if ($document) {
             $document->update(['visible' => false]);
+            $admin->log($document, 'hidden', $this->changeFacts($change));
         }
         $change->acknowledge(DocumentStatusChange::ACTION_HIDDEN);
         return back()->with('success', 'Dokument peideti avalikust vaatest.');
     }
 
-    public function unhide(DocumentStatusChange $change)
+    public function unhide(DocumentStatusChange $change, AdminActions $admin)
     {
         $this->authorizeAdmin();
         $document = $change->document;
         if ($document) {
+            if ($document->isRemoved()) {
+                return back()->with('error', 'Dokument on eemaldatud; seda ei saa enam näidata.');
+            }
             $document->update(['visible' => true]);
+            $admin->log($document, 'unhidden', $this->changeFacts($change));
         }
         $change->acknowledge(DocumentStatusChange::ACTION_UNHIDDEN);
         return back()->with('success', 'Dokument on jälle nähtav.');
     }
 
     /**
-     * Remove the stored files (database rows and remote objects) but keep the
-     * metadata row, so the fetchers' URL dedupe prevents re-ingestion.
+     * Remove the document (the review queue's "remove" decision): every stored
+     * copy of its files, its text and PII rows go; an identifying row stays so
+     * the fetchers do not re-ingest it. Acknowledges the change.
      */
-    public function deleteFiles(DocumentStatusChange $change)
+    public function deleteFiles(Request $request, DocumentStatusChange $change, AdminActions $admin)
     {
         $this->authorizeAdmin();
         $document = $change->document;
-        if ($document) {
-            DB::transaction(function () use ($document) {
-                $document->deleteFiles();
-                $document->update(['visible' => false]);
-                $document->ftsIndexSingle();
-            });
+        if (!$document) {
+            $change->acknowledge(DocumentStatusChange::ACTION_REMOVED);
+            return back()->with('success', 'Dokumenti enam pole; muutus märgiti läbivaadatuks.');
         }
-        $change->acknowledge(DocumentStatusChange::ACTION_FILES_DELETED);
-        return back()->with('success', 'Failid kustutati ja dokument peideti.');
+
+        $reason = trim((string)$request->input('reason')) ?: 'Allikas: ' . $change->transitionLabel()
+            . ($change->basis ? " ({$change->basis})" : '') . '. Eemaldatud /haldus/kontroll kaudu.';
+        try {
+            $admin->decide(
+                $document,
+                ReviewItem::DECISION_REMOVE,
+                $reason,
+                ReviewItem::SOURCE_RECHECK,
+                $this->priority($change),
+                $request->input('reference'),
+                $change->transitionLabel(),
+                ['status_change_id' => $change->id, 'personal_data' => (bool)$change->personal_data],
+            );
+        } catch (DecisionException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        return back()->with('success', 'Dokument eemaldati: failid, tekst ja isikuandmete read kustutati.');
     }
 
     /**
      * A document that became public again: download its files afresh.
      */
-    public function refetch(DocumentStatusChange $change)
+    public function refetch(DocumentStatusChange $change, AdminActions $admin)
     {
         $this->authorizeAdmin();
         $document = $change->document;
         if ($document) {
+            if ($document->isRemoved()) {
+                return back()->with('error', 'Dokument on eemaldatud; seda ei saa uuesti laadida.');
+            }
             if ($document->organisation->fetcher_type !== 'delta-adr') {
                 return back()->with('error', 'Uuesti laadimine on praegu võimalik ainult ADR registrite dokumentidele.');
             }
             $document->reindex();
             $document->update(['visible' => true]);
+            $admin->log($document, 'refetched', $this->changeFacts($change));
         }
         $change->acknowledge(DocumentStatusChange::ACTION_REFETCHED);
         return back()->with('success', 'Failid laeti uuesti.');
@@ -147,14 +176,53 @@ class RecheckController extends Controller
         $this->authorizeAdmin();
         $type = $request->get('type');
 
-        $count = DocumentStatusChange::query()
+        $query = DocumentStatusChange::query()
             ->unacknowledged()
             ->when($type === 'personal', fn($q) => $q->where('personal_data', true))
-            ->when(in_array($type, ['restricted', 'gone', 'public'], true), fn($q) => $q->where('to_status', $type))
-            ->update(['acknowledged_at' => now(), 'updated_at' => now()]);
+            ->when(in_array($type, ['restricted', 'gone', 'public'], true), fn($q) => $q->where('to_status', $type));
+
+        // Log one row per change, so the record shows each document reviewed.
+        $count = 0;
+        $query->clone()->select(['id', 'document_id', 'to_status', 'to_restriction', 'basis', 'personal_data'])
+            ->chunkById(500, function ($changes) use (&$count, $type) {
+                $items = ReviewItem::whereIn('document_id', $changes->pluck('document_id'))
+                    ->orderBy('id')->pluck('id', 'document_id');
+                $now = now();
+                ComplianceAction::insert($changes->map(fn($c) => [
+                    'review_item_id' => $items[$c->document_id] ?? null,
+                    'document_id' => $c->document_id,
+                    'effect' => 'status_change_acknowledged',
+                    'actor' => AdminActions::ACTOR,
+                    'result' => json_encode(['bulk' => $type ?: 'all'] + $this->changeFacts($c), JSON_UNESCAPED_UNICODE),
+                    'created_at' => $now,
+                ])->all());
+                DocumentStatusChange::whereIn('id', $changes->pluck('id'))
+                    ->update(['acknowledged_at' => $now, 'updated_at' => $now]);
+                $count += $changes->count();
+            });
 
         return redirect()->route('recheck.index', array_filter(['type' => $type]))
             ->with('success', "$count muutust märgiti läbivaadatuks.");
+    }
+
+    private function changeFacts(DocumentStatusChange $change): array
+    {
+        return array_filter([
+            'status_change_id' => $change->id,
+            'to_status' => $change->to_status,
+            'restriction' => $change->to_restriction,
+            'basis' => $change->basis,
+            'personal_data' => (bool)$change->personal_data,
+        ], fn($v) => $v !== null);
+    }
+
+    private function priority(DocumentStatusChange $change): int
+    {
+        return match (true) {
+            (bool)$change->personal_data => ReviewItem::PRIORITY_NAMED,
+            $change->to_status === DocumentRemoteState::STATUS_RESTRICTED => ReviewItem::PRIORITY_RESTRICTED,
+            default => ReviewItem::PRIORITY_GONE,
+        };
     }
 
     private function authorizeAdmin(): void

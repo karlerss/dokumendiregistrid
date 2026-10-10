@@ -6,6 +6,8 @@ use App\Console\Commands\PiiEnqueue;
 use App\Jobs\ExtractDocumentPii;
 use App\Jobs\RedactDocument;
 use App\Jobs\RevertRedaction;
+use App\Lib\Compliance\AdminActions;
+use App\Lib\Compliance\DecisionException;
 use App\Lib\Pii\Assessor;
 use App\Lib\Pii\Contexts;
 use App\Lib\Pii\Extractor;
@@ -18,6 +20,7 @@ use App\Models\PiiAssessment;
 use App\Models\PiiExtraction;
 use App\Models\PiiRedaction;
 use App\Models\PiiSubject;
+use App\Models\ReviewItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -129,63 +132,14 @@ class PiiController extends Controller
         ]);
     }
 
+    /** The PII detail lives in the admin panel of the document page. */
     public function show(Document $document)
     {
         $this->authorizeAdmin();
-        $document->load(['organisation', 'files.signatures', 'remoteState']);
-
-        $extraction = Assessor::latestUsableExtraction($document);
-        $latestAny = $document->latestPiiExtraction;
-        $subjects = $extraction ? $extraction->subjects()->orderBy('id')->get() : collect();
-        $assessment = $extraction ? PiiAssessment::query()->where('extraction_id', $extraction->id)->latest('id')->first() : null;
-        $redactions = $document->piiRedactions()->latest('id')->get();
-        $active = $redactions->first(fn(PiiRedaction $r) => $r->isActive() || $r->isInProgress());
-
-        $plan = null;
-        if ($assessment && !$active) {
-            $plan = (new RedactionPlanner())->plan($document, $assessment, $subjects);
-        }
-        $preview = $plan ? $this->preview($document, $plan) : null;
-
-        return view('admin.pii.show', [
-            'document' => $document,
-            'extraction' => $extraction,
-            'latestAny' => $latestAny,
-            'subjects' => $subjects,
-            'assessment' => $assessment,
-            'redactions' => $redactions,
-            'active' => $active,
-            'plan' => $plan,
-            'preview' => $preview,
-            'contexts' => Contexts::LABELS,
-            'flagLabels' => Flags::LABELS,
-            'flagged' => Extractor::isFlagged($document),
-            'staleAssessment' => $assessment && $assessment->rules_version !== Rules::VERSION,
-        ]);
+        return redirect()->to(route('document', ['document' => $document->id]) . '#isikuandmed');
     }
 
     /** Before/after snippets around each replacement, for the preview. */
-    private function preview(Document $document, array $plan): array
-    {
-        $out = [];
-        foreach ($document->files as $file) {
-            $text = (string)$file->contents;
-            if ($text === '') {
-                continue;
-            }
-            foreach ($plan['replacements'] as $r) {
-                $pattern = RedactionPlanner::pattern($r['surface'], $r['kind'] ?? 'identifier');
-                if (preg_match($pattern, $text, $m, PREG_OFFSET_CAPTURE)) {
-                    $pos = $m[0][1];
-                    $start = max(0, $pos - 60);
-                    $before = mb_strcut($text, $start, min(mb_strlen($m[0][0]) + 120, strlen($text) - $start));
-                    $after = RedactionPlanner::replaceAll($before, $plan['replacements']);
-                    $out[] = ['file' => $file->name, 'surface' => $r['surface'], 'before' => $before, 'after' => $after];
-                }
-            }
-        }
-        return array_slice($out, 0, 40);
-    }
 
     public function extract(Document $document)
     {
@@ -228,40 +182,38 @@ class PiiController extends Controller
         return back()->with('success', 'Kontekst salvestatud ja hinnang uuendatud.');
     }
 
-    public function acknowledge(PiiAssessment $assessment)
+    public function acknowledge(PiiAssessment $assessment, AdminActions $admin)
     {
         $this->authorizeAdmin();
         $assessment->review(PiiAssessment::REVIEW_ACKNOWLEDGED, self::ADMIN);
+        $admin->log($assessment->document, 'pii_assessment_acknowledged', ['assessment_id' => $assessment->id, 'band' => $assessment->band]);
         return back()->with('success', 'Märgitud läbivaadatuks.');
     }
 
-    public function redact(Document $document)
+    /**
+     * Apply the assessment's redaction plan: the review queue's "redact"
+     * decision, so it is recorded with every other decision.
+     */
+    public function redact(Request $request, Document $document, AdminActions $admin)
     {
         $this->authorizeAdmin();
-        $extraction = Assessor::latestUsableExtraction($document);
-        $assessment = $extraction ? PiiAssessment::query()->where('extraction_id', $extraction->id)->latest('id')->first() : null;
-        if (!$assessment) {
-            return back()->with('error', 'Hinnang puudub; redigeerida ei saa.');
+        $assessment = $document->latestPiiAssessment;
+        $reason = trim((string)$request->input('reason'))
+            ?: 'Isikuandmete hinnangu plaan rakendati /haldus/isikuandmed kaudu' . ($assessment ? " (hinnang {$assessment->band})." : '.');
+        try {
+            $admin->decide(
+                $document,
+                ReviewItem::DECISION_REDACT,
+                $reason,
+                ReviewItem::SOURCE_PII,
+                ReviewItem::PRIORITY_PII,
+                $request->input('reference'),
+                'isikuandmete hinnang',
+                ['assessment_id' => $assessment?->id, 'personal_data' => true],
+            );
+        } catch (DecisionException $e) {
+            return back()->with('error', $e->getMessage());
         }
-        $existing = $document->piiRedactions()->whereNull('reverted_at')
-            ->where(fn($q) => $q->where('text_status', '!=', PiiRedaction::STATUS_FAILED))
-            ->exists();
-        if ($existing) {
-            return back()->with('error', 'Dokumendil on juba kehtiv või pooleliolev redigeerimine. Taasta see enne uut.');
-        }
-        $subjects = $extraction->subjects()->orderBy('id')->get();
-        $plan = (new RedactionPlanner())->plan($document, $assessment, $subjects);
-        if (($plan['replacements'] ?? []) === []) {
-            return back()->with('error', 'Plaanis pole ühtegi asendust; midagi pole redigeerida.');
-        }
-        $redaction = PiiRedaction::create([
-            'document_id' => $document->id,
-            'assessment_id' => $assessment->id,
-            'applied_by' => self::ADMIN,
-            'plan' => $plan,
-        ]);
-        $assessment->review(PiiAssessment::REVIEW_REDACTED, self::ADMIN);
-        RedactDocument::dispatch($redaction->id);
         return back()->with('success', 'Redigeerimine on järjekorda pandud. Tekst asendatakse esimesena, failid seejärel.');
     }
 
@@ -275,6 +227,7 @@ class PiiController extends Controller
         $redaction->files_status = PiiRedaction::STATUS_PENDING;
         $redaction->appendLog('file', 'retry_requested', []);
         $redaction->save();
+        app(AdminActions::class)->log($redaction->document, 'redaction_files_retried', ['redaction_id' => $redaction->id]);
         RedactDocument::dispatch($redaction->id);
         return back()->with('success', 'Failide samm pannakse uuesti järjekorda.');
     }
@@ -286,6 +239,9 @@ class PiiController extends Controller
             return back()->with('error', 'Juba taastatud.');
         }
         RevertRedaction::dispatch($redaction->id, self::ADMIN);
+        $admin = app(AdminActions::class);
+        $admin->log($redaction->document, 'redaction_reverted', ['redaction_id' => $redaction->id]);
+        $admin->reopen($redaction->document, ReviewItem::DECISION_REDACT, "redigeerimine #{$redaction->id} taastati");
         return back()->with('success', 'Taastamine on järjekorda pandud.');
     }
 
@@ -294,13 +250,18 @@ class PiiController extends Controller
         $this->authorizeAdmin();
         $document->update(['visible' => false]);
         $document->latestPiiAssessment?->review(PiiAssessment::REVIEW_HIDDEN, self::ADMIN);
+        app(AdminActions::class)->log($document, 'hidden', ['via' => 'isikuandmed']);
         return back()->with('success', 'Dokument peidetud.');
     }
 
     public function unhide(Document $document)
     {
         $this->authorizeAdmin();
+        if ($document->isRemoved()) {
+            return back()->with('error', 'Dokument on eemaldatud; seda ei saa enam näidata.');
+        }
         $document->update(['visible' => true]);
+        app(AdminActions::class)->log($document, 'unhidden', ['via' => 'isikuandmed']);
         return back()->with('success', 'Dokument on taas nähtav.');
     }
 

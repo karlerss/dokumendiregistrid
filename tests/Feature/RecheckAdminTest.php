@@ -178,7 +178,7 @@ class RecheckAdminTest extends TestCase
         $this->assertSame(DocumentStatusChange::ACTION_UNHIDDEN, $change->fresh()->action);
     }
 
-    public function test_delete_files_removes_files_keeps_metadata_and_hides(): void
+    public function test_delete_files_removes_the_document_as_a_recorded_decision(): void
     {
         Storage::fake('r2');
         $doc = $this->doc();
@@ -191,7 +191,16 @@ class RecheckAdminTest extends TestCase
         $this->assertDatabaseMissing('files', ['id' => $file->id]);
         Storage::disk('r2')->assertMissing('x/a.pdf');
         $this->assertDatabaseHas('documents', ['id' => $doc->id, 'url' => $doc->url, 'visible' => false]);
-        $this->assertSame(DocumentStatusChange::ACTION_FILES_DELETED, $change->fresh()->action);
+        $this->assertTrue($doc->fresh()->isRemoved());
+        $this->assertSame(DocumentStatusChange::ACTION_REMOVED, $change->fresh()->action);
+
+        // Recorded like a queue decision, flagged by the re-check change.
+        $item = \App\Models\ReviewItem::where('document_id', $doc->id)->sole();
+        $this->assertSame('remove', $item->decision);
+        $this->assertSame('haldus', $item->decided_by);
+        $this->assertSame('recheck', $item->flags[0]['source']);
+        $this->assertSame($change->id, $item->flags[0]['status_change_id']);
+        $this->assertStringContainsString('AvTS § 35 lg 1 p 12', $item->decision_reason);
     }
 
     public function test_refetch_downloads_files_again_and_unhides(): void

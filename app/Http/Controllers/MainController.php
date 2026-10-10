@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Lib\Compliance\DocumentAdminData;
+use App\Models\ReviewItem;
+use App\Lib\Compliance\DecisionException;
+use App\Lib\Compliance\AdminActions;
 use App\Lib\Summarizer;
 use App\Models\Document;
 use App\Models\File;
@@ -116,6 +120,7 @@ class MainController extends Controller
 
         return view('document', [
             'document' => $document,
+            'admin' => session('is_admin') ? app(DocumentAdminData::class)->for($document) : null,
         ]);
     }
 
@@ -260,15 +265,31 @@ class MainController extends Controller
         return redirect('/')->with('success', 'Successfully logged out');
     }
 
-    public function destroy(Document $document)
+    /**
+     * Remove the document (the review queue's "remove" decision). The row
+     * stays as a tombstone so the fetchers do not re-ingest it.
+     */
+    public function destroy(Request $request, Document $document)
     {
         if (!session('is_admin')) {
             abort(403);
         }
 
-        $document->fullDelete();
+        try {
+            app(AdminActions::class)->decide(
+                $document,
+                ReviewItem::DECISION_REMOVE,
+                trim((string)$request->input('reason')) ?: 'Dokument eemaldati administraatori otsusega dokumendi lehelt.',
+                ReviewItem::SOURCE_ADMIN,
+                ReviewItem::PRIORITY_NAMED,
+                $request->input('reference'),
+                'dokumendi leht',
+            );
+        } catch (DecisionException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
-        return back();
+        return back()->with('success', 'Dokument eemaldati.');
     }
 
     public function reindex(Document $document)
@@ -277,7 +298,11 @@ class MainController extends Controller
             abort(403);
         }
 
+        if ($document->isRemoved()) {
+            return back()->with('error', 'Dokument on eemaldatud; seda ei saa uuesti laadida.');
+        }
         $document->reindex();
+        app(AdminActions::class)->log($document, 'refetched', ['via' => 'dokumendi leht']);
 
         return back();
     }
@@ -296,7 +321,9 @@ class MainController extends Controller
         }
 
         // Delete the file (this will also delete from S3/R2 storage)
+        $facts = ['file_id' => $file->id, 'name' => $file->name, 'key' => $file->location];
         $file->delete();
+        app(AdminActions::class)->log($document, 'file_deleted', $facts);
 
         // Reindex the document's FTS
         $document->ftsIndexSingle();
@@ -326,7 +353,9 @@ class MainController extends Controller
         $tempPath = $tempDir . '/' . $uploaded->getClientOriginalName();
         $uploaded->move($tempDir, $uploaded->getClientOriginalName());
 
+        $facts = ['file_id' => $file->id, 'name' => $file->name, 'key' => $file->location, 'new_name' => basename($tempPath)];
         $file->replaceWith($tempPath);
+        app(AdminActions::class)->log($document, 'file_replaced', $facts);
 
         (new \Illuminate\Filesystem\Filesystem())->deleteDirectory($tempDir);
 

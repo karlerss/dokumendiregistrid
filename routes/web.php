@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DocumentAdminController;
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\PiiController;
 use App\Http\Controllers\RecheckController;
@@ -23,6 +24,8 @@ Route::delete('/dokumendid/{document}', [MainController::class, 'destroy'])->nam
 Route::post('/dokumendid/{document}/reindex', [MainController::class, 'reindex'])->name('document.reindex');
 Route::delete('/files/{file}', [MainController::class, 'deleteFile'])->name('file.destroy');
 Route::post('/files/{file}/replace', [MainController::class, 'replaceFile'])->name('file.replace');
+
+Route::post('/dokumendid/{document}/otsus', [DocumentAdminController::class, 'decide'])->name('document.decide');
 
 Route::post('/dokumendid/{document}/eemaldamistaotlus', [TakedownController::class, 'store'])->name('takedowns.store');
 

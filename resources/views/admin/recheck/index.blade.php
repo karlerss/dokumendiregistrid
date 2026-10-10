@@ -170,11 +170,14 @@
                                             <x-bladewind.button size="tiny" color="yellow" can_submit="true">Peida</x-bladewind.button>
                                         </form>
                                     @endif
-                                    @if($doc && $change->to_status !== 'public' && $doc->files()->count() > 0)
+                                    @if($doc && $change->to_status !== 'public' && !$doc->isRemoved())
                                         <form method="post" action="{{ route('recheck.deleteFiles', $change) }}"
-                                              onsubmit="return confirm('Kustuta dokumendi failid jäädavalt ja peida dokument?')">@csrf
-                                            <x-bladewind.button size="tiny" color="red" can_submit="true">Kustuta failid</x-bladewind.button>
+                                              onsubmit="return confirm('Eemaldada dokument? Failid, tekst ja isikuandmete read kustutatakse jäädavalt; otsus läheb aruandesse.')">@csrf
+                                            <x-bladewind.button size="tiny" color="red" can_submit="true">Eemalda</x-bladewind.button>
                                         </form>
+                                    @endif
+                                    @if($doc)
+                                        <a href="{{ route('document', ['document' => $doc->id]) }}#haldus"><x-bladewind.button size="tiny" color="blue" outline="true">Ava</x-bladewind.button></a>
                                     @endif
                                     @if($doc && $change->to_status === 'public' && !$doc->visible)
                                         <form method="post" action="{{ route('recheck.unhide', $change) }}">@csrf

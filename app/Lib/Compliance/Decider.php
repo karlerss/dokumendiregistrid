@@ -72,14 +72,34 @@ class Decider
     ): ReviewItem {
         $plan = $this->plan($item, $decision, $options);
 
-        if (trim($reason) === '') {
-            throw new DecisionException('A reason is required for every decision.');
-        }
-
         if ($decision !== ReviewItem::DECISION_KEEP && $planId !== $plan['plan_id']) {
             throw new DecisionException($planId === null
                 ? 'Run the decision without confirm first and pass the returned plan_id.'
                 : 'The item changed since that plan was made; review the new plan and confirm its plan_id.');
+        }
+
+        return $this->run($item, $decision, $reason, $reference, $actor, $plan);
+    }
+
+    /**
+     * Carry out a decision confirmed in the /haldus UI, where the button's
+     * confirmation dialog takes the place of the dry run.
+     */
+    public function execute(
+        ReviewItem $item,
+        string $decision,
+        string $reason,
+        ?string $reference,
+        string $actor,
+        array $options = [],
+    ): ReviewItem {
+        return $this->run($item, $decision, $reason, $reference, $actor, $this->plan($item, $decision, $options));
+    }
+
+    private function run(ReviewItem $item, string $decision, string $reason, ?string $reference, string $actor, array $plan): ReviewItem
+    {
+        if (trim($reason) === '') {
+            throw new DecisionException('A reason is required for every decision.');
         }
 
         if ($decision === ReviewItem::DECISION_REMOVE) {

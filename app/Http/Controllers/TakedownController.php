@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ReviewItem;
+use App\Lib\Compliance\DecisionException;
+use App\Lib\Compliance\AdminActions;
 use App\Mail\TakedownAcceptedMail;
 use App\Mail\TakedownAcceptedRemovedMail;
 use App\Mail\TakedownDeniedMail;
@@ -153,45 +156,72 @@ class TakedownController extends Controller
     {
         $this->authorizeAdmin();
 
-        $takedownRequest->load(['document.latestPiiAssessment.extraction.subjects', 'document.latestPiiExtraction']);
+        // Requests about a document are handled in the document page's admin panel.
+        if ($takedownRequest->document_id && $takedownRequest->document) {
+            return redirect()->to(route('document', ['document' => $takedownRequest->document_id]) . '#taotlus-' . $takedownRequest->id);
+        }
 
         return view('admin.takedowns.show', [
             'takedownRequest' => $takedownRequest,
         ]);
     }
 
+    /**
+     * Accept a takedown request with one of:
+     *  - remove: the review queue's "remove" decision (files, text, PII rows);
+     *  - redact: the "redact" decision, from the PII assessment's plan or the
+     *    strings given; the note tells the requester what was removed;
+     *  - none:   accept with a note only; nothing published changes.
+     */
     public function accept(Request $request, TakedownRequest $takedownRequest)
     {
         $this->authorizeAdmin();
 
-        $removeDocument = $request->boolean('remove_document');
-
+        $action = $request->input('action', $request->boolean('remove_document') ? 'remove' : 'none');
         $validated = $request->validate([
-            'resolution_note' => $removeDocument ? 'nullable|string|max:5000' : 'required|string|max:5000',
+            'action' => 'nullable|in:remove,redact,none',
+            'resolution_note' => $action === 'remove' ? 'nullable|string|max:5000' : 'required|string|max:5000',
+            'strings' => 'nullable|string|max:20000',
         ]);
+        $note = $validated['resolution_note'] ?? null;
+        $document = $takedownRequest->document;
 
-        if ($removeDocument) {
-            $takedownRequest->document?->fullDelete();
-
-            $takedownRequest->update([
-                'document_id' => null,
-                'status' => TakedownRequest::STATUS_ACCEPTED,
-                'resolution_note' => null,
-                'resolved_at' => now(),
-            ]);
-
-            Mail::to($takedownRequest->author_email)->send(new TakedownAcceptedRemovedMail($takedownRequest));
-        } else {
-            $takedownRequest->update([
-                'status' => TakedownRequest::STATUS_ACCEPTED,
-                'resolution_note' => $validated['resolution_note'],
-                'resolved_at' => now(),
-            ]);
-
-            Mail::to($takedownRequest->author_email)->send(new TakedownAcceptedMail($takedownRequest));
+        if (in_array($action, ['remove', 'redact'], true) && $document) {
+            $strings = array_values(array_filter(array_map('trim', preg_split('/\R/u', (string)($validated['strings'] ?? '')))));
+            try {
+                app(AdminActions::class)->decide(
+                    $document,
+                    $action === 'remove' ? ReviewItem::DECISION_REMOVE : ReviewItem::DECISION_REDACT,
+                    $note ?: "Eemaldamistaotlus rahuldati ({$takedownRequest->legal_basis}).",
+                    ReviewItem::SOURCE_TAKEDOWN,
+                    ReviewItem::PRIORITY_NAMED,
+                    "eemaldamistaotlus #{$takedownRequest->id}",
+                    $takedownRequest->legal_basis,
+                    $this->takedownFacts($takedownRequest),
+                    $action === 'redact' && $strings ? ['strings' => $strings] : [],
+                );
+            } catch (DecisionException $e) {
+                return back()->withInput()->with('error', $e->getMessage());
+            }
+        } elseif ($action === 'none') {
+            app(AdminActions::class)->log($document, 'takedown_accepted', ['takedown_id' => $takedownRequest->id, 'note' => $note]);
         }
 
-        return redirect()->route('takedowns.index')->with('success', 'Taotlus on rahuldatud ja teavitus saadetud.');
+        $takedownRequest->update([
+            'status' => TakedownRequest::STATUS_ACCEPTED,
+            'resolution_note' => $action === 'remove' ? null : $note,
+            'resolved_at' => now(),
+        ]);
+
+        Mail::to($takedownRequest->author_email)->send($action === 'remove'
+            ? new TakedownAcceptedRemovedMail($takedownRequest)
+            : new TakedownAcceptedMail($takedownRequest));
+
+        return back()->with('success', match ($action) {
+            'remove' => 'Taotlus rahuldati, dokument eemaldati ja esitajale saadeti teavitus.',
+            'redact' => 'Taotlus rahuldati, isikuandmete redigeerimine on järjekorras ja esitajale saadeti teavitus.',
+            default => 'Taotlus on rahuldatud ja teavitus saadetud.',
+        });
     }
 
     public function deny(Request $request, TakedownRequest $takedownRequest)
@@ -202,6 +232,32 @@ class TakedownController extends Controller
             'resolution_note' => 'required|string|max:5000',
         ]);
 
+        // The review queue's "keep" decision, with the reply to the requester
+        // as the reason; recorded even when the item cannot take a decision.
+        $document = $takedownRequest->document;
+        $decided = false;
+        if ($document) {
+            try {
+                app(AdminActions::class)->decide(
+                    $document,
+                    ReviewItem::DECISION_KEEP,
+                    $validated['resolution_note'],
+                    ReviewItem::SOURCE_TAKEDOWN,
+                    ReviewItem::PRIORITY_NAMED,
+                    "eemaldamistaotlus #{$takedownRequest->id}",
+                    $takedownRequest->legal_basis,
+                    $this->takedownFacts($takedownRequest),
+                );
+                $decided = true;
+            } catch (DecisionException) {
+            }
+        }
+        if (!$decided) {
+            app(AdminActions::class)->log($document, 'takedown_denied', [
+                'takedown_id' => $takedownRequest->id, 'note' => $validated['resolution_note'],
+            ]);
+        }
+
         $takedownRequest->update([
             'status' => TakedownRequest::STATUS_DENIED,
             'resolution_note' => $validated['resolution_note'],
@@ -210,7 +266,16 @@ class TakedownController extends Controller
 
         Mail::to($takedownRequest->author_email)->send(new TakedownDeniedMail($takedownRequest));
 
-        return redirect()->route('takedowns.index')->with('success', 'Taotlus on tagasi lükatud ja teavitus saadetud.');
+        return back()->with('success', 'Taotlus on tagasi lükatud ja teavitus saadetud.');
+    }
+
+    private function takedownFacts(TakedownRequest $takedownRequest): array
+    {
+        return [
+            'takedown_id' => $takedownRequest->id,
+            'public_sector' => $takedownRequest->isFromPublicSector(),
+            'personal_data' => str_starts_with($takedownRequest->legal_basis, 'IKÜM'),
+        ];
     }
 
     private function authorizeAdmin(): void

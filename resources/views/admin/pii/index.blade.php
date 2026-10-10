@@ -229,6 +229,7 @@
                         <th>Isikud</th>
                         <th>Märgised</th>
                         <th>Seis</th>
+                        <th>Õ. huvi</th>
                         <th></th>
                     </x-slot>
                     @forelse($assessments as $a)
@@ -278,6 +279,13 @@
                                 @if($active && $active->isInProgress())<div class="text-blue-700">redigeerimine pooleli</div>@endif
                                 @if($a->isReviewed())<div class="text-gray-500">läbivaadatud · {{ $a->review_action }}</div>@endif
                             </td>
+                            <td class="text-xs" style="max-width: 16rem">
+                                @if($l = $lia[$a->document_id] ?? null)
+                                    <a href="{{ route('document', ['document' => $a->document_id]) }}#oigustatud-huvi" title="{{ $l['outcome_reason'] }}">
+                                        <x-bladewind.tag :label="$l['outcome_label']" :color="\App\Lib\Pii\LegitimateInterest::OUTCOME_COLORS[$l['outcome']]"/>
+                                    </a>
+                                @endif
+                            </td>
                             <td class="whitespace-nowrap">
                                 <div class="flex flex-wrap gap-1">
                                     <a href="{{ route('pii.show', $doc) }}"><x-bladewind.button size="tiny" color="blue">Vaata</x-bladewind.button></a>
@@ -305,7 +313,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="text-center text-gray-400 py-8">Hinnanguid pole.</td></tr>
+                        <tr><td colspan="7" class="text-center text-gray-400 py-8">Hinnanguid pole.</td></tr>
                     @endforelse
                 </x-bladewind.table>
                 <div class="mt-4">{{ $assessments->links() }}</div>

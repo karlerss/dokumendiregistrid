@@ -345,7 +345,25 @@
         @endif
     </section>
 
-    {{-- 5. Log ------------------------------------------------------------ --}}
+    {{-- 5. Legitimate interest assessment (preview, not stored) ---------- --}}
+    @if($admin['lia'])
+        @php $lia = $admin['lia']; @endphp
+        <section class="border border-gray-300 rounded p-4" id="oigustatud-huvi">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+                <h2 class="text-lg font-bold">Õigustatud huvi hinnang</h2>
+                <x-bladewind.tag :label="$lia['outcome_label']" :color="\App\Lib\Pii\LegitimateInterest::OUTCOME_COLORS[$lia['outcome']]"/>
+                <span class="text-xs text-gray-500">eelvaade, genereeritud praegustest andmetest · v{{ $lia['basis']['lia_version'] }} · hinnang #{{ $lia['basis']['assessment_id'] }}</span>
+            </div>
+            @foreach($lia['sections'] as $section)
+                <h3 class="font-semibold mt-3">{{ $section['title'] }}</h3>
+                @foreach($section['paragraphs'] as $paragraph)
+                    <p class="mt-1">{{ $paragraph }}</p>
+                @endforeach
+            @endforeach
+        </section>
+    @endif
+
+    {{-- 6. Log ------------------------------------------------------------ --}}
     <section class="border border-gray-300 rounded p-4" id="logi">
         <h2 class="text-lg font-bold mb-2">Logi ({{ $admin['log']->count() }})</h2>
         @forelse($admin['log'] as $a)

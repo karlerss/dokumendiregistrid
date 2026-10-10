@@ -17,6 +17,7 @@ use App\Lib\Pii\Assessor;
 use App\Lib\Pii\Contexts;
 use App\Lib\Pii\Extractor;
 use App\Lib\Pii\Flags;
+use App\Lib\Pii\LegitimateInterest;
 use App\Lib\Pii\RedactionPlanner;
 use App\Lib\Pii\Rules;
 use App\Lib\Pii\Schema;
@@ -94,6 +95,9 @@ class PiiController extends Controller
             'backlog' => $backlog,
             'failures' => $failures,
             'inProgress' => $inProgress,
+            'lia' => $assessments
+                ? $assessments->getCollection()->mapWithKeys(fn(PiiAssessment $a) => [$a->document_id => $a->document ? (new LegitimateInterest())->assess($a->document) : null])
+                : collect(),
             'failedRedactions' => $failedRedactions,
             'failedRedactionCount' => $failedRedactionCount,
             'tokensToday' => Extractor::tokensUsedToday(),

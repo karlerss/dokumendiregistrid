@@ -6,6 +6,7 @@ use App\Lib\Pii\Assessor;
 use App\Lib\Pii\Contexts;
 use App\Lib\Pii\Extractor;
 use App\Lib\Pii\Flags;
+use App\Lib\Pii\LegitimateInterest;
 use App\Lib\Pii\RedactionPlanner;
 use App\Lib\Pii\Rules;
 use App\Models\ComplianceAction;
@@ -19,7 +20,8 @@ use App\Models\TakedownRequest;
 /**
  * Everything the admin panel on the document page shows: the review item
  * and its decision, takedown requests, what the source registry says, the
- * PII extraction/assessment/redaction, and the log of actions. One place,
+ * PII extraction/assessment/redaction, the legitimate interest assessment
+ * (generated on the fly), and the log of actions. One place,
  * so the document page is the single view for all admin work on a document.
  */
 class DocumentAdminData
@@ -40,6 +42,7 @@ class DocumentAdminData
             'takedowns' => TakedownRequest::where('document_id', $document->id)->latest('id')->get(),
             'changes' => DocumentStatusChange::where('document_id', $document->id)->orderByDesc('occurred_at')->limit(15)->get(),
             'log' => ComplianceAction::where('document_id', $document->id)->latest('id')->limit(100)->get(),
+            'lia' => (new LegitimateInterest())->assess($document),
             'pii' => [
                 'extraction' => $extraction,
                 'latestAny' => $document->latestPiiExtraction,

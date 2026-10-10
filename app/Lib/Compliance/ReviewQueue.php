@@ -99,7 +99,10 @@ class ReviewQueue
             $item->save();
 
             return $item;
-        });
+        // SQLite allows one writer: the daemon and queue worker write all the
+        // time, and a deferred transaction that read first can be refused
+        // with "database is locked". Laravel retries those.
+        }, 5);
     }
 
     // ---------------------------------------------------- per-source flags

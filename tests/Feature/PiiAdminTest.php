@@ -230,6 +230,45 @@ class PiiAdminTest extends TestCase
         $this->assertSame(1, $summary['redact']);
     }
 
+    public function test_remove_failed_button_removes_only_documents_whose_latest_redaction_failed(): void
+    {
+        Queue::fake();
+        $failed = $this->doc();
+        $fixed = Document::create([
+            'organisation_id' => $this->org->id, 'url' => 'https://adr.rik.ee/som/dokument/2', 'original_id' => '2',
+            'title' => 'Teine kiri', 'reference' => 'R2', 'registration_date' => '2024-01-01', 'type' => 'Kiri', 'restriction' => 'Avalik',
+        ]);
+        $plan = ['replacements' => [], 'files' => []];
+        PiiRedaction::create(['document_id' => $failed->id, 'applied_by' => 'admin', 'plan' => $plan,
+            'text_status' => PiiRedaction::STATUS_FAILED, 'files_status' => PiiRedaction::STATUS_SKIPPED]);
+        // A failure later superseded by a successful redaction is not a current failure.
+        PiiRedaction::create(['document_id' => $fixed->id, 'applied_by' => 'admin', 'plan' => $plan,
+            'text_status' => PiiRedaction::STATUS_APPLIED, 'files_status' => PiiRedaction::STATUS_PARTIAL]);
+        PiiRedaction::create(['document_id' => $fixed->id, 'applied_by' => 'admin', 'plan' => $plan,
+            'text_status' => PiiRedaction::STATUS_APPLIED, 'files_status' => PiiRedaction::STATUS_APPLIED]);
+
+        $reason = \App\Lib\Compliance\FailedRedactionRemoval::DEFAULT_REASON;
+        $this->post(route('pii.removeFailed'), ['reason' => $reason])->assertForbidden();
+        $this->asAdmin()->get(route('pii.index'))->assertOk()
+            ->assertSee('Redigeerimise vead (1)')->assertSee('Eemalda kõik (1)')->assertSee($reason);
+
+        $this->asAdmin()->from(route('pii.index'))->post(route('pii.removeFailed'), ['reason' => $reason])
+            ->assertRedirect(route('pii.index'))->assertSessionHas('success');
+        Queue::assertPushed(\App\Jobs\RemoveFailedRedactions::class, fn($job) => $job->reason === $reason);
+        $this->assertSame(1, \App\Models\ComplianceAction::where('effect', 'batch_removal_requested')->sole()->result['documents']);
+        $this->assertFalse($failed->fresh()->isRemoved(), 'nothing removed until the job runs');
+
+        // What the queued job does.
+        (new \App\Jobs\RemoveFailedRedactions($reason))->handle(app(\App\Lib\Compliance\FailedRedactionRemoval::class));
+        $this->assertTrue($failed->fresh()->isRemoved());
+        $this->assertFalse($fixed->fresh()->isRemoved());
+        $item = \App\Models\ReviewItem::where('document_id', $failed->id)->sole();
+        $this->assertSame([\App\Models\ReviewItem::DECISION_REMOVE, 'haldus:pakett', $reason], [$item->decision, $item->decided_by, $item->decision_reason]);
+        $this->assertSame([$failed->id], \App\Models\ComplianceAction::where('effect', 'batch_removal_completed')->sole()->result['removed']);
+
+        $this->asAdmin()->from(route('pii.index'))->post(route('pii.removeFailed'), ['reason' => $reason])->assertSessionHas('error');
+    }
+
     public function test_redact_creates_plan_and_dispatches_only_once(): void
     {
         Queue::fake();

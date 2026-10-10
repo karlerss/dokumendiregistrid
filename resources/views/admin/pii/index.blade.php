@@ -96,13 +96,22 @@
                     @endif
                     @if($failedRedactions->count())
                         <div class="border border-red-300 rounded p-4">
-                            <div class="font-semibold mb-2">Redigeerimise vead</div>
+                            <div class="font-semibold mb-2">Redigeerimise vead ({{ $failedRedactionCount }})</div>
                             @foreach($failedRedactions as $r)
                                 <div class="mb-1">
                                     <a class="underline" href="{{ route('pii.show', $r->document_id) }}">#{{ $r->document_id }}</a>
                                     <span class="text-gray-500">tekst: {{ \App\Models\PiiRedaction::statusLabel($r->text_status) }} · failid: {{ \App\Models\PiiRedaction::statusLabel($r->files_status) }}</span>
                                 </div>
                             @endforeach
+                            @if($failedRedactionCount > $failedRedactions->count())
+                                <div class="text-gray-500 mb-1">… ja veel {{ $failedRedactionCount - $failedRedactions->count() }}</div>
+                            @endif
+                            <form method="post" action="{{ route('pii.removeFailed') }}" class="mt-3"
+                                  onsubmit="return confirm('Eemaldada kõik {{ $failedRedactionCount }} ebaõnnestunud redigeerimisega dokumenti? Dokument ja kõik failid kustutatakse jäädavalt; iga dokument saab oma otsuse selle põhjusega.')">
+                                @csrf
+                                <input name="reason" required class="w-full border rounded p-1 mb-2" value="{{ \App\Lib\Compliance\FailedRedactionRemoval::DEFAULT_REASON }}"/>
+                                <x-bladewind.button size="small" color="red" can_submit="true">Eemalda kõik ({{ $failedRedactionCount }})</x-bladewind.button>
+                            </form>
                         </div>
                     @endif
                 </div>

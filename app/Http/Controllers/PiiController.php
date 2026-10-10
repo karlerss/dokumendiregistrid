@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\ComplianceAction;
 use App\Jobs\RedactBandsBatch;
+use App\Jobs\RemoveFailedRedactions;
+use App\Lib\Compliance\FailedRedactionRemoval;
 use App\Lib\Compliance\BatchRedaction;
 use App\Console\Commands\PiiEnqueue;
 use App\Jobs\ExtractDocumentPii;
@@ -101,9 +103,8 @@ class PiiController extends Controller
         $inProgress = PiiRedaction::query()->with('document')->whereNull('reverted_at')
             ->where(fn($q) => $q->where('text_status', PiiRedaction::STATUS_PENDING)->orWhere('files_status', PiiRedaction::STATUS_PENDING))
             ->latest('id')->limit(20)->get();
-        $failedRedactions = PiiRedaction::query()->with('document')->whereNull('reverted_at')
-            ->where(fn($q) => $q->where('text_status', PiiRedaction::STATUS_FAILED)->orWhereIn('files_status', [PiiRedaction::STATUS_FAILED, PiiRedaction::STATUS_PARTIAL]))
-            ->latest('id')->limit(20)->get();
+        $failedRedactionCount = FailedRedactionRemoval::query()->count();
+        $failedRedactions = FailedRedactionRemoval::query()->with('document')->latest('id')->limit(20)->get();
 
         $lastRun = Cache::get(PiiEnqueue::KEY_LAST_RUN);
         $lastRunAt = $lastRun ? Carbon::parse($lastRun) : null;
@@ -117,6 +118,7 @@ class PiiController extends Controller
             'failures' => $failures,
             'inProgress' => $inProgress,
             'failedRedactions' => $failedRedactions,
+            'failedRedactionCount' => $failedRedactionCount,
             'tokensToday' => Extractor::tokensUsedToday(),
             'cap' => (int)config('pii.daily_token_cap'),
             'capHit' => Cache::get(PiiEnqueue::KEY_CAP_HIT),
@@ -161,6 +163,34 @@ class PiiController extends Controller
 
         return back()->with('success', 'Pakett-redigeerimine (' . implode(', ', $bands) . ') on järjekorras. '
             . 'Iga dokument saab oma otsuse; seis on näha dokumentide lehtedel ja allolevas loendis.');
+    }
+
+    /**
+     * Batch decision from the "Redigeerimise vead" card: remove every
+     * document whose current redaction failed. Runs as a queued job; each
+     * document gets its own recorded decision.
+     */
+    public function removeFailed(Request $request)
+    {
+        $this->authorizeAdmin();
+        $data = $request->validate([
+            'reason' => 'required|string|max:2000',
+            'reference' => 'nullable|string|max:255',
+        ]);
+        $count = FailedRedactionRemoval::query()->count();
+        if (!$count) {
+            return back()->with('error', 'Ebaõnnestunud redigeerimisi pole.');
+        }
+
+        RemoveFailedRedactions::dispatch(trim($data['reason']), $data['reference'] ?? null);
+        ComplianceAction::create([
+            'effect' => 'batch_removal_requested',
+            'actor' => AdminActions::ACTOR,
+            'result' => ['reason' => trim($data['reason']), 'reference' => $data['reference'] ?? null, 'documents' => $count],
+        ]);
+
+        return back()->with('success', "Ebaõnnestunud redigeerimisega dokumentide ($count) eemaldamine on järjekorras. "
+            . 'Iga dokument saab oma otsuse.');
     }
 
     /** The PII detail lives in the admin panel of the document page. */

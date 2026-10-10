@@ -133,6 +133,41 @@ class PiiAdminTest extends TestCase
         Queue::assertPushed(RedactDocument::class, 1);
     }
 
+    public function test_high_risk_batch_redacts_each_document_as_its_own_decision(): void
+    {
+        Queue::fake();
+        $high = $this->doc();
+        $this->assessed($high)->forceFill(['band' => PiiAssessment::BAND_HIGH])->save();
+        $warn = Document::create(['organisation_id' => $this->org->id, 'url' => 'https://adr.rik.ee/som/dokument/2', 'original_id' => '2',
+            'title' => 'Teine', 'reference' => 'R', 'registration_date' => '2024-01-01', 'type' => 'Kiri', 'restriction' => 'Avalik']);
+        $this->assessed($warn);
+        $reviewed = Document::create(['organisation_id' => $this->org->id, 'url' => 'https://adr.rik.ee/som/dokument/3', 'original_id' => '3',
+            'title' => 'Kolmas', 'reference' => 'R', 'registration_date' => '2024-01-01', 'type' => 'Kiri', 'restriction' => 'Avalik']);
+        File::create(['document_id' => $reviewed->id, 'name' => 'k.pdf', 'location' => 'x/k.pdf', 'contents' => 'Tere Mari Maasikas, siin on pikem tekst mis ületab viiskümmend märki kindlasti.']);
+        $r = $this->assessed($reviewed);
+        $r->forceFill(['band' => PiiAssessment::BAND_HIGH])->save();
+        $r->review(PiiAssessment::REVIEW_ACKNOWLEDGED, 'admin');
+
+        // Dry run by default: nothing written.
+        $this->artisan('compliance:redact-high-risk')->assertSuccessful();
+        $this->assertSame(0, PiiRedaction::count());
+        $this->assertSame(0, \App\Models\ReviewItem::count());
+
+        $this->artisan('compliance:redact-high-risk', ['--apply' => true, '--reference' => 'HIGH 10.10.2026'])->assertSuccessful();
+
+        $redaction = PiiRedaction::sole();
+        $this->assertSame($high->id, $redaction->document_id, 'only the unreviewed HIGH document');
+        $this->assertSame('haldus:pakett', $redaction->applied_by);
+        $item = \App\Models\ReviewItem::where('document_id', $high->id)->sole();
+        $this->assertSame(['redact', 'Tuvastati ebaproportsionaalne risk eraelu puutumatusele.', 'HIGH 10.10.2026', 'haldus:pakett'],
+            [$item->decision, $item->decision_reason, $item->decision_reference, $item->decided_by]);
+        Queue::assertPushed(RedactDocument::class, 1);
+
+        // A second run skips it: the redaction is already in effect.
+        $this->artisan('compliance:redact-high-risk', ['--apply' => true])->assertSuccessful();
+        $this->assertSame(1, PiiRedaction::count());
+    }
+
     public function test_redact_creates_plan_and_dispatches_only_once(): void
     {
         Queue::fake();

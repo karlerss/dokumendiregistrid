@@ -39,6 +39,7 @@ class AdminActions
         string $note,
         array $refs = [],
         array $options = [],
+        string $actor = self::ACTOR,
     ): ReviewItem {
         $item = $this->queue->flag($document, null, $source, $priority, $reference, $note, $refs);
         // Deciding again in /haldus overrides an earlier "keep" (removal and
@@ -47,7 +48,7 @@ class AdminActions
             $this->reopen($document, ReviewItem::DECISION_KEEP, 'uus otsus /haldus kaudu');
             $item->refresh();
         }
-        return $this->decider->execute($item->fresh(['document']), $decision, $reason, $reference, self::ACTOR, $options);
+        return $this->decider->execute($item->fresh(['document']), $decision, $reason, $reference, $actor, $options);
     }
 
     /** Record a /haldus action that is not itself a decision. */

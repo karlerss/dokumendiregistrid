@@ -43,33 +43,8 @@ class PiiController extends Controller
     {
         $this->authorizeAdmin();
 
-        $band = $request->get('band');
-        $review = $request->get('review', 'unreviewed'); // unreviewed | reviewed | all
-        $orgId = $request->get('org');
-        $series = $request->get('series');
-        $context = $request->get('context');
-        $flag = $request->get('flag');
-        $matter = $request->get('matter');
-        $redacted = $request->get('redacted'); // 1 | 0 | null
         $group = $request->boolean('group');
-
-        // Latest assessment per document.
-        $latestIds = PiiAssessment::query()->selectRaw('max(id)')->groupBy('document_id');
-
-        $base = PiiAssessment::query()
-            ->whereIn('pii_assessments.id', $latestIds)
-            ->join('documents', 'documents.id', '=', 'pii_assessments.document_id')
-            ->join('organisations', 'organisations.id', '=', 'documents.organisation_id')
-            ->when($band, fn($q) => $q->where('pii_assessments.band', $band))
-            ->when($review === 'unreviewed', fn($q) => $q->whereNull('pii_assessments.reviewed_at'))
-            ->when($review === 'reviewed', fn($q) => $q->whereNotNull('pii_assessments.reviewed_at'))
-            ->when($orgId, fn($q) => $q->where('documents.organisation_id', $orgId))
-            ->when($series, fn($q) => $q->where('documents.series', $series))
-            ->when($matter, fn($q) => $q->whereExists(fn($s) => $s->selectRaw('1')->from('pii_extractions')->whereColumn('pii_extractions.id', 'pii_assessments.extraction_id')->where('matter', $matter)))
-            ->when($flag, fn($q) => $q->whereExists(fn($s) => $s->selectRaw('1')->from('pii_extractions')->whereColumn('pii_extractions.id', 'pii_assessments.extraction_id')->where('flags', 'like', '%"' . $flag . '"%')))
-            ->when($context, fn($q) => $q->whereExists(fn($s) => $s->selectRaw('1')->from('pii_subjects')->whereColumn('pii_subjects.extraction_id', 'pii_assessments.extraction_id')->where(fn($w) => $w->where('context_override', $context)->orWhere(fn($x) => $x->whereNull('context_override')->where('context', $context)))))
-            ->when($redacted === '1', fn($q) => $q->whereNotNull('documents.redacted_at'))
-            ->when($redacted === '0', fn($q) => $q->whereNull('documents.redacted_at'));
+        [$base, $filters] = $this->filteredAssessments($request);
 
         $groups = null;
         $assessments = null;
@@ -130,12 +105,82 @@ class PiiController extends Controller
             'promptVersion' => Extractor::PROMPT_VERSION,
             'rulesVersion' => Rules::VERSION,
             'model' => config('pii.model'),
-            'filters' => compact('band', 'review', 'orgId', 'series', 'context', 'flag', 'matter', 'redacted'),
+            'filters' => $filters,
             'organisations' => \App\Models\Organisation::query()->orderBy('name')->get(['id', 'name']),
             'contexts' => Contexts::LABELS,
             'flagLabels' => Flags::LABELS,
             'matters' => Schema::MATTERS,
         ]);
+    }
+
+    /**
+     * The list's filters: the latest assessment per document, narrowed by
+     * the query (or form) parameters. Shared by the list and the
+     * "redact all filtered" button so both cover the same documents.
+     *
+     * @return array{0: \Illuminate\Database\Eloquent\Builder, 1: array<string, mixed>}
+     */
+    private function filteredAssessments(Request $request): array
+    {
+        $band = $request->get('band');
+        $review = $request->get('review', 'unreviewed'); // unreviewed | reviewed | all
+        $orgId = $request->get('org');
+        $series = $request->get('series');
+        $context = $request->get('context');
+        $flag = $request->get('flag');
+        $matter = $request->get('matter');
+        $redacted = $request->get('redacted'); // 1 | 0 | null
+
+        // Latest assessment per document.
+        $latestIds = PiiAssessment::query()->selectRaw('max(id)')->groupBy('document_id');
+
+        $base = PiiAssessment::query()
+            ->whereIn('pii_assessments.id', $latestIds)
+            ->join('documents', 'documents.id', '=', 'pii_assessments.document_id')
+            ->join('organisations', 'organisations.id', '=', 'documents.organisation_id')
+            ->when($band, fn($q) => $q->where('pii_assessments.band', $band))
+            ->when($review === 'unreviewed', fn($q) => $q->whereNull('pii_assessments.reviewed_at'))
+            ->when($review === 'reviewed', fn($q) => $q->whereNotNull('pii_assessments.reviewed_at'))
+            ->when($orgId, fn($q) => $q->where('documents.organisation_id', $orgId))
+            ->when($series, fn($q) => $q->where('documents.series', $series))
+            ->when($matter, fn($q) => $q->whereExists(fn($s) => $s->selectRaw('1')->from('pii_extractions')->whereColumn('pii_extractions.id', 'pii_assessments.extraction_id')->where('matter', $matter)))
+            ->when($flag, fn($q) => $q->whereExists(fn($s) => $s->selectRaw('1')->from('pii_extractions')->whereColumn('pii_extractions.id', 'pii_assessments.extraction_id')->where('flags', 'like', '%"' . $flag . '"%')))
+            ->when($context, fn($q) => $q->whereExists(fn($s) => $s->selectRaw('1')->from('pii_subjects')->whereColumn('pii_subjects.extraction_id', 'pii_assessments.extraction_id')->where(fn($w) => $w->where('context_override', $context)->orWhere(fn($x) => $x->whereNull('context_override')->where('context', $context)))))
+            ->when($redacted === '1', fn($q) => $q->whereNotNull('documents.redacted_at'))
+            ->when($redacted === '0', fn($q) => $q->whereNull('documents.redacted_at'));
+
+        return [$base, compact('band', 'review', 'orgId', 'series', 'context', 'flag', 'matter', 'redacted')];
+    }
+
+    /**
+     * Batch decision from the list page: apply the suggested redaction to
+     * every document in the current filter. Runs as a queued job; each
+     * document gets its own recorded decision, and documents with nothing
+     * to replace, an active redaction or a reviewed assessment are skipped.
+     */
+    public function redactFiltered(Request $request)
+    {
+        $this->authorizeAdmin();
+        $data = $request->validate([
+            'reason' => 'required|string|max:2000',
+            'reference' => 'nullable|string|max:255',
+        ]);
+        [$base] = $this->filteredAssessments($request);
+        $ids = (clone $base)->pluck('pii_assessments.document_id')->map(fn($id) => (int)$id)->all();
+        if (!$ids) {
+            return back()->with('error', 'Filtris pole dokumente.');
+        }
+
+        RedactBandsBatch::dispatch([], trim($data['reason']), $data['reference'] ?? null, $ids);
+        ComplianceAction::create([
+            'effect' => 'batch_redaction_requested',
+            'actor' => AdminActions::ACTOR,
+            'result' => ['filters' => $request->only(['band', 'review', 'org', 'series', 'context', 'flag', 'matter', 'redacted']),
+                'documents' => count($ids), 'reason' => trim($data['reason']), 'reference' => $data['reference'] ?? null],
+        ]);
+
+        return back()->with('success', 'Filtreeritud dokumentide (' . count($ids) . ') redigeerimine on järjekorras. '
+            . 'Iga dokument saab oma otsuse; plaanita, juba redigeeritud või läbivaadatud dokumendid jäetakse vahele.');
     }
 
     /**

@@ -14,6 +14,7 @@ class PiiAssessment extends Model
     public const BAND_INFO = 'INFO';
     public const BAND_WARN = 'WARN';
     public const BAND_HIGH = 'HIGH';
+    public const BANDS = [self::BAND_HIGH, self::BAND_WARN, self::BAND_INFO];
 
     public const RECOMMEND_NONE = 'NONE';
     public const RECOMMEND_REDACT = 'REDACT';

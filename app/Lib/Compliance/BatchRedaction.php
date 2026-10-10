@@ -32,6 +32,23 @@ class BatchRedaction
     public function run(array $bands, string $reason, ?string $reference, bool $apply, bool $includeReviewed = false, int $limit = 0, string $actor = self::ACTOR): array
     {
         $documentIds = PiiAssessment::query()->whereIn('band', $bands)->distinct()->pluck('document_id');
+        return $this->over($documentIds->all(), $bands, $reason, $reference, $apply, $includeReviewed, $limit, $actor);
+    }
+
+    /**
+     * The same decision for a chosen set of documents (the filtered list in
+     * /haldus/isikuandmed), whatever their band.
+     *
+     * @param int[] $documentIds
+     */
+    public function runForDocuments(array $documentIds, string $reason, ?string $reference, bool $apply, string $actor = self::ACTOR): array
+    {
+        return $this->over($documentIds, PiiAssessment::BANDS, $reason, $reference, $apply, false, 0, $actor);
+    }
+
+    private function over(array $documentIds, array $bands, string $reason, ?string $reference, bool $apply, bool $includeReviewed, int $limit, string $actor): array
+    {
+        $documentIds = collect($documentIds)->unique();
         $rows = [];
         $counts = ['redact' => 0, 'skipped' => 0, 'failed' => 0];
         $planner = new RedactionPlanner();

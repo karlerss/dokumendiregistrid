@@ -182,6 +182,18 @@
                 <a href="{{ route('pii.index') }}" class="underline text-gray-600 pb-1">tühjenda</a>
             </form>
 
+            @if(!$group && $assessments->total())
+                <form method="post" action="{{ route('pii.redactFiltered') }}" class="flex flex-wrap gap-2 items-center mb-4 text-sm"
+                      onsubmit="return confirm('Rakendada soovitatud redigeerimine kõigile {{ $assessments->total() }} filtreeritud dokumendile? Iga dokument saab oma otsuse selle põhjusega; failid asendatakse redigeeritud koopiatega või võetakse maha. Plaanita, juba redigeeritud ja läbivaadatud dokumendid jäetakse vahele.')">
+                    @csrf
+                    @foreach(['band' => $filters['band'], 'review' => $filters['review'], 'org' => $filters['orgId'], 'series' => $filters['series'], 'context' => $filters['context'], 'flag' => $filters['flag'], 'matter' => $filters['matter'], 'redacted' => $filters['redacted']] as $name => $value)
+                        @if($value !== null && $value !== '')<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif
+                    @endforeach
+                    <input name="reason" required class="border rounded px-2 py-1 grow max-w-xl" value="{{ \App\Lib\Compliance\BatchRedaction::DEFAULT_REASON }}"/>
+                    <x-bladewind.button size="tiny" color="orange" can_submit="true">Redigeeri kõik filtreeritud ({{ $assessments->total() }})</x-bladewind.button>
+                </form>
+            @endif
+
             @if($group)
                 <x-bladewind.table divider="thin">
                     <x-slot name="header">
@@ -276,6 +288,12 @@
                                     @elseif($doc)
                                         <form method="post" action="{{ route('pii.unhide', $doc) }}">@csrf
                                             <x-bladewind.button size="tiny" color="green" can_submit="true">Näita</x-bladewind.button>
+                                        </form>
+                                    @endif
+                                    @if($doc && !$active && !$a->isReviewed())
+                                        <form method="post" action="{{ route('pii.redact', $doc) }}" onsubmit="return confirm('Rakendada soovitatud redigeerimine?')">@csrf
+                                            <input type="hidden" name="reason" value="{{ \App\Lib\Compliance\BatchRedaction::DEFAULT_REASON }}">
+                                            <x-bladewind.button size="tiny" color="orange" can_submit="true">Redigeeri</x-bladewind.button>
                                         </form>
                                     @endif
                                     @unless($a->isReviewed())

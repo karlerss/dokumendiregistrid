@@ -230,6 +230,41 @@ class PiiAdminTest extends TestCase
         $this->assertSame(1, $summary['redact']);
     }
 
+    public function test_redact_filtered_applies_the_plan_to_the_filtered_documents_only(): void
+    {
+        Queue::fake();
+        $inFilter = $this->doc();
+        $this->assessed($inFilter);
+        $otherOrg = Organisation::create(['name' => 'MKM', 'slug' => 'mkm', 'registry_base_uri' => 'https://adr.rik.ee/mkm/', 'fetcher_type' => 'delta-adr']);
+        $outside = Document::create([
+            'organisation_id' => $otherOrg->id, 'url' => 'https://adr.rik.ee/mkm/dokument/2', 'original_id' => '2',
+            'title' => 'Kiri Mari Maasikale', 'reference' => 'R2', 'registration_date' => '2024-01-01', 'type' => 'Kiri', 'restriction' => 'Avalik',
+        ]);
+        File::create(['document_id' => $outside->id, 'name' => 'kiri.pdf', 'location' => 'y/kiri.pdf', 'contents' => 'Tere Mari Maasikas, siin on pikem tekst mis ületab viiskümmend märki kindlasti.', 'parsed_with' => \App\Lib\Parser\PdfParser::class]);
+        $this->assessed($outside);
+
+        $reason = \App\Lib\Compliance\BatchRedaction::DEFAULT_REASON;
+        $this->post(route('pii.redactFiltered'), ['reason' => $reason])->assertForbidden();
+        $this->asAdmin()->get(route('pii.index', ['org' => $this->org->id]))->assertOk()
+            ->assertSee('Redigeeri kõik filtreeritud (1)')
+            ->assertSee(route('pii.redact', $inFilter))
+            ->assertDontSee(route('pii.redact', $outside));
+
+        $this->asAdmin()->from(route('pii.index'))
+            ->post(route('pii.redactFiltered'), ['reason' => $reason, 'org' => $this->org->id, 'review' => 'unreviewed'])
+            ->assertRedirect(route('pii.index'))->assertSessionHas('success');
+        Queue::assertPushed(\App\Jobs\RedactBandsBatch::class, fn($job) => $job->documentIds === [$inFilter->id]);
+
+        // What the queued job does.
+        (new \App\Jobs\RedactBandsBatch([], $reason, null, [$inFilter->id]))->handle(app(\App\Lib\Compliance\BatchRedaction::class));
+        $this->assertSame([$inFilter->id], PiiRedaction::pluck('document_id')->all());
+        $item = \App\Models\ReviewItem::where('document_id', $inFilter->id)->sole();
+        $this->assertSame(['redact', 'haldus:pakett', $reason], [$item->decision, $item->decided_by, $item->decision_reason]);
+
+        // Once redacted, the row no longer offers the button.
+        $this->asAdmin()->get(route('pii.index', ['review' => 'all']))->assertOk()->assertDontSee(route('pii.redact', $inFilter));
+    }
+
     public function test_remove_failed_button_removes_only_documents_whose_latest_redaction_failed(): void
     {
         Queue::fake();

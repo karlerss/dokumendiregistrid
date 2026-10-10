@@ -19,6 +19,9 @@ class PiiExtraction extends Model
 
     public const REQUESTED_BY_WORKER = 'worker';
     public const REQUESTED_BY_ADMIN = 'admin';
+    // Started because the document got a takedown request; like admin runs,
+    // it does not count towards the worker's daily token cap.
+    public const REQUESTED_BY_TAKEDOWN = 'takedown';
 
     public const MAX_ATTEMPTS = 3;
 

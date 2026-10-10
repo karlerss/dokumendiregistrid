@@ -18,6 +18,14 @@ class TakedownTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Confirming a request queues a PII extraction; never let it reach
+        // the real model API from tests.
+        \Illuminate\Support\Facades\Queue::fake([\App\Jobs\ExtractDocumentPii::class]);
+    }
+
     private function makeDocument(array $overrides = []): Document
     {
         $org = Organisation::create([

@@ -108,6 +108,22 @@ class DocumentAdminPanelTest extends TestCase
         $this->assertTrue(ComplianceAction::where('review_item_id', $item->id)->where('effect', 'reopened')->exists());
     }
 
+    public function test_a_failed_redaction_leaves_its_assessment_unreviewed(): void
+    {
+        $extraction = \App\Models\PiiExtraction::create(['document_id' => $this->doc->id, 'model' => 't', 'status' => 'done', 'prompt_version' => 1, 'schema_version' => 1]);
+        $assessment = \App\Models\PiiAssessment::create(['document_id' => $this->doc->id, 'extraction_id' => $extraction->id, 'rules_version' => 1, 'band' => 'HIGH', 'recommendation' => 'REDACT', 'computed_at' => now()]);
+        $assessment->review(\App\Models\PiiAssessment::REVIEW_REDACTED, 'haldus');
+        $item = app(\App\Lib\Compliance\ReviewQueue::class)->flag($this->doc, null, ReviewItem::SOURCE_PII, ReviewItem::PRIORITY_PII, null, null);
+        $item->forceFill(['status' => 'decided', 'decision' => 'redact', 'decided_at' => now()])->save();
+        $redaction = \App\Models\PiiRedaction::create(['document_id' => $this->doc->id, 'assessment_id' => $assessment->id, 'applied_by' => 'haldus', 'plan' => [],
+            'text_status' => 'failed', 'files_status' => 'skipped', 'log' => [['step' => 'text', 'outcome' => 'failed', 'leftover' => [['surface' => 'X', 'in' => []]]]]]);
+
+        app(\App\Lib\Compliance\ReviewQueue::class)->reopenAfterFailedRedaction($redaction);
+
+        $this->assertTrue($item->fresh()->isOpen());
+        $this->assertNull($assessment->fresh()->reviewed_at, 'nothing was redacted, so the assessment needs review again');
+    }
+
     public function test_keep_can_be_overridden_by_a_later_decision(): void
     {
         $this->admin()->post(route('document.decide', $this->doc), ['decision' => 'keep', 'reason' => 'Ametnik tööülesannetes.'])->assertSessionHas('success');

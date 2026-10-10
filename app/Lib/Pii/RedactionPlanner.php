@@ -280,19 +280,53 @@ class RedactionPlanner
     }
 
     /**
-     * Regex for a surface form: whitespace-tolerant, bounded by
-     * non-alphanumerics. Name forms that are multi-word or reasonably long
-     * also swallow a trailing run of letters, so Estonian case endings
-     * ("Mari Maasikase", "Maasikasele") are covered without being listed.
-     * Short single-word forms stay strict so "Tamm" cannot eat "Tammsaare".
+     * Regex for a surface form: whitespace-tolerant, and bounded only where
+     * the form itself would otherwise run into more of the same: a form
+     * starting or ending with a letter may not continue into a letter, one
+     * starting or ending with a digit may not continue into a digit, and
+     * punctuation needs no boundary. Text extracted from PDFs often glues
+     * fields together ("48208160244Tagastamise", "Paul2,1"), so a code may
+     * touch a word and a name may touch a number.
+     *
+     * Name forms that are multi-word or reasonably long also swallow a
+     * trailing run of lowercase letters, so Estonian case endings ("Mari
+     * Maasikase", "Maasikasele") are covered without being listed. Short
+     * single-word forms stay strict so "Tamm" cannot eat "Tammsaare".
+     *
+     * E-mail addresses take in the rest of their local part (the extraction
+     * may have caught only its end) and have no right boundary: the domain
+     * is often glued to the next word ("…@gmail.comei saada").
      */
     public static function pattern(string $surface, string $kind = 'identifier'): string
     {
         $normalized = Grounding::normalize($surface);
         $parts = preg_split('/\s+/u', $normalized);
         $quoted = implode('\s+', array_map(fn($p) => preg_quote($p, '/'), $parts));
+
+        if (preg_match('/^[^\s@]+@[^\s@]+\.[^\s@]+$/u', $normalized)) {
+            return '/(?<![\p{L}\p{N}._%+-])[\p{L}\p{N}._%+-]*' . $quoted . '/u';
+        }
+
+        $left = self::boundary(mb_substr($normalized, 0, 1), behind: true);
         $tolerant = $kind === 'name' && (count($parts) > 1 || mb_strlen($normalized) >= 6) && !preg_match('/\.$/u', $normalized);
-        $right = $tolerant ? '\p{Ll}*(?![\p{L}\p{N}])' : '(?![\p{L}\p{N}])';
-        return '/(?<![\p{L}\p{N}])' . $quoted . $right . '/u';
+        $right = $tolerant && preg_match('/\p{L}$/u', $normalized)
+            ? '\p{Ll}*(?!\p{L})'
+            : self::boundary(mb_substr($normalized, -1), behind: false);
+
+        return '/' . $left . $quoted . $right . '/u';
+    }
+
+    /** Lookaround that stops a form from continuing into the same kind of character. */
+    private static function boundary(string $char, bool $behind): string
+    {
+        $class = match (true) {
+            (bool)preg_match('/\p{L}/u', $char) => '\p{L}',
+            (bool)preg_match('/\p{N}/u', $char) => '\p{N}',
+            default => null,
+        };
+        if ($class === null) {
+            return '';
+        }
+        return $behind ? "(?<!$class)" : "(?!$class)";
     }
 }

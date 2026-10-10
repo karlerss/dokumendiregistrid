@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ComplianceAction;
+use App\Jobs\RedactBandsBatch;
+use App\Lib\Compliance\BatchRedaction;
 use App\Console\Commands\PiiEnqueue;
 use App\Jobs\ExtractDocumentPii;
 use App\Jobs\RedactDocument;
@@ -86,7 +89,8 @@ class PiiController extends Controller
 
         $bandCounts = PiiAssessment::query()
             ->whereIn('id', PiiAssessment::query()->selectRaw('max(id)')->groupBy('document_id'))
-            ->selectRaw("count(*) as total, sum(band = 'HIGH') as high, sum(band = 'WARN') as warn, sum(band = 'INFO') as info, sum(reviewed_at is null) as unreviewed, sum(reviewed_at is null and band = 'HIGH') as unreviewed_high")
+            // Only what still needs reviewing: the per-band figures count unreviewed assessments.
+            ->selectRaw("sum(reviewed_at is null) as unreviewed, sum(reviewed_at is null and band = 'HIGH') as high, sum(reviewed_at is null and band = 'WARN') as warn, sum(reviewed_at is null and band = 'INFO') as info")
             ->first();
 
         $backlog = PiiExtraction::query()
@@ -130,6 +134,33 @@ class PiiController extends Controller
             'flagLabels' => Flags::LABELS,
             'matters' => Schema::MATTERS,
         ]);
+    }
+
+    /**
+     * Batch decision from the list page: redact every document whose current
+     * assessment is in the chosen bands and not yet reviewed. Runs as a
+     * queued job; each document gets its own recorded decision.
+     */
+    public function redactAll(Request $request)
+    {
+        $this->authorizeAdmin();
+        $data = $request->validate([
+            'bands' => 'required|array|min:1',
+            'bands.*' => 'in:' . implode(',', BatchRedaction::BANDS),
+            'reason' => 'required|string|max:2000',
+            'reference' => 'nullable|string|max:255',
+        ]);
+        $bands = array_values(array_unique($data['bands']));
+
+        RedactBandsBatch::dispatch($bands, trim($data['reason']), $data['reference'] ?? null);
+        ComplianceAction::create([
+            'effect' => 'batch_redaction_requested',
+            'actor' => AdminActions::ACTOR,
+            'result' => ['bands' => $bands, 'reason' => trim($data['reason']), 'reference' => $data['reference'] ?? null],
+        ]);
+
+        return back()->with('success', 'Pakett-redigeerimine (' . implode(', ', $bands) . ') on järjekorras. '
+            . 'Iga dokument saab oma otsuse; seis on näha dokumentide lehtedel ja allolevas loendis.');
     }
 
     /** The PII detail lives in the admin panel of the document page. */

@@ -48,6 +48,7 @@ Route::post('/haldus/kontroll/{change}/ignoreeri', [RecheckController::class, 'i
 Route::post('/haldus/kontroll/kinnita-koik', [RecheckController::class, 'acknowledgeAll'])->name('recheck.acknowledgeAll');
 
 Route::get('/haldus/isikuandmed', [PiiController::class, 'index'])->name('pii.index');
+Route::post('/haldus/isikuandmed/redigeeri-koik', [PiiController::class, 'redactAll'])->name('pii.redactAll');
 Route::get('/haldus/isikuandmed/{document}', [PiiController::class, 'show'])->name('pii.show');
 Route::post('/haldus/isikuandmed/{document}/ekstrakti', [PiiController::class, 'extract'])->name('pii.extract');
 Route::post('/haldus/isikuandmed/{document}/redigeeri', [PiiController::class, 'redact'])->name('pii.redact');

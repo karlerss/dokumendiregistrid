@@ -187,6 +187,49 @@ class PiiAdminTest extends TestCase
         $this->assertEqualsCanonicalizing([$warn->id, $high->id], PiiRedaction::pluck('document_id')->all(), 'both; WARN not redacted twice');
     }
 
+    public function test_assessment_card_counts_only_unreviewed(): void
+    {
+        $a = $this->doc();
+        $this->assessed($a)->forceFill(['band' => PiiAssessment::BAND_HIGH])->save();
+        $b = Document::create(['organisation_id' => $this->org->id, 'url' => 'https://adr.rik.ee/som/dokument/2', 'original_id' => '2',
+            'title' => 'Teine', 'reference' => 'R', 'registration_date' => '2024-01-01', 'type' => 'Kiri', 'restriction' => 'Avalik']);
+        File::create(['document_id' => $b->id, 'name' => 'k.pdf', 'location' => 'x/k.pdf', 'contents' => 'Tere Mari Maasikas, siin on pikem tekst mis ületab viiskümmend märki kindlasti.']);
+        $reviewed = $this->assessed($b);
+        $reviewed->forceFill(['band' => PiiAssessment::BAND_HIGH])->save();
+        $reviewed->review(PiiAssessment::REVIEW_REDACTED, 'admin');
+
+        $this->asAdmin()->get(route('pii.index'))->assertOk()
+            ->assertSee('1 läbivaatamata')
+            ->assertSee('1 kõrge')
+            ->assertSee('0 hoiatus')
+            ->assertDontSee('2 kõrge')
+            ->assertDontSee('kokku</div>', false);
+    }
+
+    public function test_redact_all_button_queues_the_batch_and_the_batch_decides_each_document(): void
+    {
+        Queue::fake();
+        $doc = $this->doc();
+        $this->assessed($doc); // WARN
+
+        $this->post(route('pii.redactAll'), ['bands' => ['WARN'], 'reason' => 'x'])->assertForbidden();
+        $this->asAdmin()->post(route('pii.redactAll'), ['bands' => ['BOGUS'], 'reason' => 'x'])->assertSessionHasErrors('bands.0');
+        $this->asAdmin()->get(route('pii.index'))->assertOk()->assertSee('Redigeeri kõik');
+
+        $this->asAdmin()->from(route('pii.index'))
+            ->post(route('pii.redactAll'), ['bands' => ['HIGH', 'WARN'], 'reason' => 'Tuvastati ebaproportsionaalne risk eraelu puutumatusele.'])
+            ->assertRedirect(route('pii.index'))->assertSessionHas('success');
+        Queue::assertPushed(\App\Jobs\RedactBandsBatch::class, fn($job) => $job->bands === ['HIGH', 'WARN']);
+        $this->assertTrue(\App\Models\ComplianceAction::where('effect', 'batch_redaction_requested')->exists());
+
+        // What the queued job does.
+        (new \App\Jobs\RedactBandsBatch(['HIGH', 'WARN'], 'Tuvastati ebaproportsionaalne risk eraelu puutumatusele.'))->handle(app(\App\Lib\Compliance\BatchRedaction::class));
+        $this->assertSame($doc->id, PiiRedaction::sole()->document_id);
+        $this->assertSame('haldus:pakett', \App\Models\ReviewItem::where('document_id', $doc->id)->sole()->decided_by);
+        $summary = \App\Models\ComplianceAction::where('effect', 'batch_redaction_completed')->sole()->result;
+        $this->assertSame(1, $summary['redact']);
+    }
+
     public function test_redact_creates_plan_and_dispatches_only_once(): void
     {
         Queue::fake();

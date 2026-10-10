@@ -186,6 +186,13 @@ class ReviewQueue
                 'decided_by' => null,
                 'decided_at' => null,
             ])->save();
+            // The assessment was marked "redacted" when the decision was
+            // made; nothing was redacted, so it is unreviewed again.
+            if ($redaction->assessment_id) {
+                PiiAssessment::query()->whereKey($redaction->assessment_id)
+                    ->where('review_action', PiiAssessment::REVIEW_REDACTED)
+                    ->update(['reviewed_at' => null, 'reviewed_by' => null, 'review_action' => null]);
+            }
             return $item;
         });
     }

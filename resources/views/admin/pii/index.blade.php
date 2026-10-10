@@ -50,9 +50,20 @@
                     <div class="text-gray-500">
                         <span class="text-red-700">{{ number_format($bandCounts->high ?? 0) }} kõrge</span> ·
                         <span class="text-yellow-700">{{ number_format($bandCounts->warn ?? 0) }} hoiatus</span> ·
-                        {{ number_format($bandCounts->info ?? 0) }} info ·
-                        {{ number_format($bandCounts->total ?? 0) }} kokku
+                        {{ number_format($bandCounts->info ?? 0) }} info
                     </div>
+                    @if(($bandCounts->high ?? 0) + ($bandCounts->warn ?? 0) > 0)
+                        <form method="post" action="{{ route('pii.redactAll') }}" class="mt-3 text-sm"
+                              onsubmit="return confirm('Redigeerida kõik valitud tasemega läbivaatamata dokumendid hinnangu plaani järgi? Iga dokument saab oma otsuse selle põhjusega; failid asendatakse redigeeritud koopiatega või võetakse maha.')">
+                            @csrf
+                            <div class="flex gap-3 mb-2">
+                                <label><input type="checkbox" name="bands[]" value="HIGH" checked> kõrge ({{ number_format($bandCounts->high ?? 0) }})</label>
+                                <label><input type="checkbox" name="bands[]" value="WARN" checked> hoiatus ({{ number_format($bandCounts->warn ?? 0) }})</label>
+                            </div>
+                            <input name="reason" required class="w-full border rounded p-1 mb-2" value="{{ \App\Lib\Compliance\BatchRedaction::DEFAULT_REASON }}"/>
+                            <x-bladewind.button size="small" color="orange" can_submit="true">Redigeeri kõik</x-bladewind.button>
+                        </form>
+                    @endif
                 </div>
             </div>
 

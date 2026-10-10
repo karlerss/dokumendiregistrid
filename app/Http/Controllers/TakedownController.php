@@ -78,6 +78,10 @@ class TakedownController extends Controller
         $takedownRequest->markVerified();
         try {
             app(ReviewQueue::class)->flagTakedown($takedownRequest);
+            // Have the PII assessment (and redaction plan) ready for review.
+            if ($takedownRequest->document) {
+                app(\App\Lib\Compliance\TakedownPiiCheck::class)->queue($takedownRequest->document);
+            }
         } catch (\Throwable $e) {
             report($e);
         }

@@ -53,13 +53,14 @@ class ReviewQueueSourcesTest extends TestCase
 
     private function highAssessment(Document $doc): PiiAssessment
     {
-        $ex = PiiExtraction::create(['document_id' => $doc->id, 'model' => 't', 'status' => 'done', 'prompt_version' => 1, 'schema_version' => 1]);
+        $ex = PiiExtraction::create(['document_id' => $doc->id, 'model' => 't', 'status' => 'done', 'prompt_version' => \App\Lib\Pii\Extractor::PROMPT_VERSION, 'schema_version' => 1]);
         return PiiAssessment::create(['document_id' => $doc->id, 'extraction_id' => $ex->id, 'rules_version' => 1, 'band' => PiiAssessment::BAND_HIGH, 'recommendation' => PiiAssessment::RECOMMEND_REVIEW_WITHHOLD, 'computed_at' => now()]);
     }
 
-    public function test_a_verified_takedown_is_queued(): void
+    public function test_a_verified_takedown_is_queued_and_its_pii_check_started(): void
     {
         Mail::fake();
+        \Illuminate\Support\Facades\Queue::fake([\App\Jobs\ExtractDocumentPii::class]);
         $doc = $this->doc();
         $t = $this->takedown($doc, ['status' => TakedownRequest::STATUS_UNVERIFIED, 'verified_at' => null, 'author_email' => 'x@rmk.ee', 'verification_code' => '123456', 'verification_code_expires_at' => now()->addMinutes(30)]);
 
@@ -70,6 +71,31 @@ class ReviewQueueSourcesTest extends TestCase
         $this->assertSame("eemaldamistaotlus #{$t->id}", $item->flags[0]['reference']);
         $this->assertTrue($item->flags[0]['public_sector'], 'rmk.ee is a public-sector sender');
         $this->assertTrue($item->flags[0]['personal_data'], 'GDPR art 21 objection');
+
+        $extraction = PiiExtraction::where('document_id', $doc->id)->sole();
+        $this->assertSame([PiiExtraction::REQUESTED_BY_TAKEDOWN, PiiExtraction::STATUS_PENDING], [$extraction->requested_by, $extraction->status]);
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\ExtractDocumentPii::class, fn($job) => $job->extractionId === $extraction->id);
+    }
+
+    public function test_takedown_pii_check_command_skips_documents_already_checked(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake([\App\Jobs\ExtractDocumentPii::class]);
+        $unchecked = $this->doc();
+        $this->takedown($unchecked);
+        $checked = $this->doc();
+        $this->takedown($checked);
+        $this->highAssessment($checked);              // done extraction exists
+        $this->takedown($this->doc(), ['status' => TakedownRequest::STATUS_DENIED]);
+
+        $this->artisan('pii:extract-takedowns', ['--dry-run' => true])->assertSuccessful();
+        \Illuminate\Support\Facades\Queue::assertNothingPushed();
+
+        $this->artisan('pii:extract-takedowns')->assertSuccessful();
+        $this->assertSame([$unchecked->id], PiiExtraction::where('requested_by', 'takedown')->pluck('document_id')->all());
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\ExtractDocumentPii::class, 1);
+
+        $this->artisan('pii:extract-takedowns')->assertSuccessful();
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\ExtractDocumentPii::class, 1); // already queued: not again
     }
 
     public function test_a_high_assessment_is_queued_by_the_assess_job(): void

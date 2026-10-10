@@ -17,6 +17,7 @@
         "henck/rtf-to-html": "^1.2",
         "http-interop/http-factory-guzzle": "^1.2",
         "laravel/framework": "^11.0",
+        "laravel/mcp": "^1.0",
         "laravel/tinker": "^2.9",
         "league/flysystem-aws-s3-v3": "^3.0",
         "mews/purifier": "^3.4",

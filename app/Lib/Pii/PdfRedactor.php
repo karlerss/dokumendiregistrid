@@ -19,4 +19,12 @@ interface PdfRedactor
      * @throws \RuntimeException
      */
     public function convertToPdf(string $inputPath, string $outputDir): string;
+
+    /**
+     * Convert an office document to another format LibreOffice can write
+     * (e.g. "xlsx" for a legacy .xls); returns the produced path.
+     *
+     * @throws \RuntimeException
+     */
+    public function convertTo(string $inputPath, string $outputDir, string $format): string;
 }

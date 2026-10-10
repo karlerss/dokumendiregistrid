@@ -215,6 +215,11 @@ class PiiPipelineTest extends TestCase
             {
                 throw new \RuntimeException('not needed');
             }
+
+            public function convertTo(string $inputPath, string $outputDir, string $format): string
+            {
+                throw new \RuntimeException('not needed');
+            }
         });
         $redaction = PiiRedaction::create(['document_id' => $doc->id, 'assessment_id' => $assessment2->id, 'applied_by' => 'admin', 'plan' => $plan]);
         (new \App\Jobs\RedactDocument($redaction->id))->handle(app(Redactor::class));

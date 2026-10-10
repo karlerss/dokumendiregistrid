@@ -33,10 +33,15 @@ class PyMuPdfRedactor implements PdfRedactor
 
     public function convertToPdf(string $inputPath, string $outputDir): string
     {
+        return $this->convertTo($inputPath, $outputDir, 'pdf');
+    }
+
+    public function convertTo(string $inputPath, string $outputDir, string $format): string
+    {
         $result = Process::timeout(300)->env(['HOME' => sys_get_temp_dir()])->run([
-            config('pii.soffice'), '--headless', '--norestore', '--convert-to', 'pdf', '--outdir', $outputDir, $inputPath,
+            config('pii.soffice'), '--headless', '--norestore', '--convert-to', $format, '--outdir', $outputDir, $inputPath,
         ]);
-        $expected = $outputDir . '/' . pathinfo($inputPath, PATHINFO_FILENAME) . '.pdf';
+        $expected = $outputDir . '/' . pathinfo($inputPath, PATHINFO_FILENAME) . '.' . $format;
         if (!$result->successful() || !file_exists($expected)) {
             throw new \RuntimeException('soffice conversion failed: ' . trim($result->errorOutput() ?: $result->output()));
         }

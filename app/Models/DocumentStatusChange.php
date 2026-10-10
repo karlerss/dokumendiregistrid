@@ -12,6 +12,10 @@ class DocumentStatusChange extends Model
     public const ACTION_FILES_DELETED = 'files_deleted';
     public const ACTION_REFETCHED = 'refetched';
     public const ACTION_IGNORED = 'ignored';
+    // Set when a compliance review decision closes the change.
+    public const ACTION_REMOVED = 'removed';
+    public const ACTION_KEPT = 'kept';
+    public const ACTION_REDACTED = 'redacted';
 
     protected $guarded = [];
 

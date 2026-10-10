@@ -101,6 +101,7 @@ class SitemapsController extends Controller
         $org = Organisation::query()->where('slug', $orgSlug)->firstOrFail();
 
         Document::query()
+            ->visible()
             ->where('organisation_id', $org->id)
             ->whereRaw("strftime('%Y', registration_date) = ?", [$year])
             ->get()->map(function ($doc) use (&$xml) {

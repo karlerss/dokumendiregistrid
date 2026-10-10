@@ -19,12 +19,14 @@ class RedactionPlanner
     public const ACTION_REDACT_PDF = 'REDACT_PDF';
     public const ACTION_CONVERT_AND_REDACT = 'CONVERT_AND_REDACT';
     public const ACTION_REWRITE_TEXT = 'REWRITE_TEXT';
+    // .eml/.msg/.html: rebuilt as sanitised HTML, replaced, rendered to PDF (MessageRenderer).
+    public const ACTION_RENDER_AND_REDACT = 'RENDER_AND_REDACT';
     public const ACTION_WITHHOLD = 'WITHHOLD_ORIGINAL';
 
     public const CODE_PLACEHOLDER = '[isikukood eemaldatud]';
     public const REMOVED_PLACEHOLDER = '[eemaldatud]';
 
-    private const CONVERTIBLE = ['docx', 'doc', 'rtf', 'odt', 'xlsx', 'xls', 'ods', 'pptx'];
+    private const CONVERTIBLE = ['docx', 'docm', 'doc', 'rtf', 'odt', 'xlsx', 'xlsm', 'xls', 'ods', 'pptx', 'odp'];
 
     /**
      * @param Collection<int, PiiSubject> $subjects
@@ -98,6 +100,42 @@ class RedactionPlanner
         ];
     }
 
+    /**
+     * A plan from strings a reviewer names directly (a decision on the
+     * review queue), without an assessment. Each string is replaced with
+     * the removal placeholder; strings of letters only get the
+     * inflection-tolerant name matching, anything with digits stays strict.
+     *
+     * @param string[] $strings
+     */
+    public function planFromStrings(Document $document, array $strings): array
+    {
+        $document->loadMissing('files');
+
+        $replacements = [];
+        $seen = [];
+        foreach ($strings as $string) {
+            $string = trim((string)$string);
+            $key = Grounding::normalize($string);
+            if (mb_strlen($key) < 2 || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $kind = preg_match('/\d/u', $string) ? 'identifier' : 'name';
+            $replacements[] = ['subject_id' => null, 'surface' => $string, 'replacement' => self::REMOVED_PLACEHOLDER, 'kind' => $kind];
+        }
+        usort($replacements, fn($a, $b) => mb_strlen($b['surface']) <=> mb_strlen($a['surface']));
+
+        return [
+            'assessment_id' => null,
+            'rules_version' => null,
+            'replacements' => $replacements,
+            'subjects' => [],
+            'files' => $this->fileActions($document, $replacements),
+            'clear_ai_summary' => $replacements !== [],
+        ];
+    }
+
     private function replacement(int $subjectId, string $surface, string $replacement, string $kind): array
     {
         return ['subject_id' => $subjectId, 'surface' => $surface, 'replacement' => $replacement, 'kind' => $kind];
@@ -163,9 +201,17 @@ class RedactionPlanner
         }
 
         $surfaces = array_map(fn($r) => $r['surface'], $replacements);
+        $original = app(OriginalText::class);
         foreach ($document->files as $file) {
             /** @var File $file */
-            $g = new Grounding(['body' => $file->contents, 'name' => $file->name, 'html' => Grounding::stripHtml($file->html)]);
+            $g = new Grounding([
+                'body' => $file->contents,
+                'name' => $file->name,
+                'html' => Grounding::stripHtml($file->html),
+                // Mail headers, page text, office headers/footers/comments/
+                // cells: what the stored fields do not carry.
+                'source' => OriginalText::applies($file) ? $original->extra($file) : null,
+            ]);
             $touched = false;
             foreach ($surfaces as $s) {
                 if ($g->occurs($s)) {
@@ -188,6 +234,7 @@ class RedactionPlanner
                 $ext === 'pdf' && $hasText => ['name' => $file->name, 'action' => self::ACTION_REDACT_PDF, 'reason' => 'PDF tekstikihiga'],
                 $ext === 'pdf' => ['name' => $file->name, 'action' => self::ACTION_WITHHOLD, 'reason' => 'PDF ilma tekstikihita'],
                 in_array($ext, self::CONVERTIBLE, true) => ['name' => $file->name, 'action' => self::ACTION_CONVERT_AND_REDACT, 'reason' => 'teisendatakse PDF-iks ja redigeeritakse'],
+                MessageRenderer::renderable($file) => ['name' => $file->name, 'action' => self::ACTION_RENDER_AND_REDACT, 'reason' => 'kiri/veebileht esitatakse redigeeritud PDF-ina'],
                 $ext === 'txt' => ['name' => $file->name, 'action' => self::ACTION_REWRITE_TEXT, 'reason' => 'tekstifail kirjutatakse redigeerituna uuesti'],
                 default => ['name' => $file->name, 'action' => self::ACTION_WITHHOLD, 'reason' => 'formaati ei saa redigeerida'],
             };
@@ -205,7 +252,12 @@ class RedactionPlanner
         };
         foreach ($document->files as $file) {
             if ($actions[(string)$file->id]['action'] === self::ACTION_KEEP && $descendantTouched($file->id)) {
-                $actions[(string)$file->id] = ['name' => $file->name, 'action' => self::ACTION_WITHHOLD, 'reason' => 'sisaldab redigeeritavat faili'];
+                // A message's own copy leaves its attachments out (they are
+                // separate files), so it can be rendered rather than withheld.
+                // Signed containers (asice/bdoc) cannot be altered: withheld.
+                $actions[(string)$file->id] = MessageRenderer::renderable($file)
+                    ? ['name' => $file->name, 'action' => self::ACTION_RENDER_AND_REDACT, 'reason' => 'manus redigeeritakse; kiri esitatakse PDF-ina ilma manusteta']
+                    : ['name' => $file->name, 'action' => self::ACTION_WITHHOLD, 'reason' => 'sisaldab redigeeritavat faili'];
             }
         }
         return $actions;

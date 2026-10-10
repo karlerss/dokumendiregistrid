@@ -23,6 +23,14 @@ class MainController extends Controller
             $query = DB::table('documents');
         }
 
+        // Hidden and removed documents never reach visitors through search;
+        // admins still find them. Excluding the few hidden ids (rather than
+        // filtering on `visible`) keeps the count on the covering
+        // restriction index: 0.01s instead of 0.4s on production.
+        if (!session('is_admin')) {
+            $query->whereNotIn('documents.id', Document::hiddenIds());
+        }
+
         if ($request->org_ids) {
             $query->whereIn('organisation_id', explode(',', $request->org_ids));
         }
@@ -98,6 +106,10 @@ class MainController extends Controller
 
     public function show(Document $document, ?string $slug = null)
     {
+        if ($document->isRemoved() && !session('is_admin')) {
+            abort(410);
+        }
+
         if (!$document->visible && !session('is_admin')) {
             abort(451);
         }
@@ -142,6 +154,7 @@ class MainController extends Controller
         $slug = urldecode($slug);
         $documents = Document::query()
             ->where('dossier', $slug)
+            ->when(!session('is_admin'), fn($q) => $q->visible())
             ->paginate(100);
         return view('dossier', [
             'documents' => $documents,
@@ -209,6 +222,7 @@ class MainController extends Controller
             ->where('organisation_id', $org->id)
             ->whereRaw("strftime('%Y', registration_date) = '$year'")
             ->whereRaw("strftime('%m', registration_date) = '$month'")
+            ->when(!session('is_admin'), fn($q) => $q->visible())
             ->orderBy('registration_date', 'desc')
             ->orderBy('original_id', 'desc')
             ->get();

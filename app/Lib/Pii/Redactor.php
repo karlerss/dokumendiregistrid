@@ -25,7 +25,7 @@ use Illuminate\Support\Str;
  */
 class Redactor
 {
-    public function __construct(private PdfRedactor $pdf)
+    public function __construct(private PdfRedactor $pdf, private MessageRenderer $messages, private SpreadsheetRedactor $sheets)
     {
     }
 
@@ -187,9 +187,10 @@ class Redactor
             }
             try {
                 $extra = match ($action) {
-                    RedactionPlanner::ACTION_REDACT_PDF => $this->redactPdfFile($file, $forms, false),
-                    RedactionPlanner::ACTION_CONVERT_AND_REDACT => $this->redactPdfFile($file, $forms, true),
+                    RedactionPlanner::ACTION_REDACT_PDF => $this->redactPdfFile($file, $forms, false, $replacements),
+                    RedactionPlanner::ACTION_CONVERT_AND_REDACT => $this->redactPdfFile($file, $forms, true, $replacements),
                     RedactionPlanner::ACTION_REWRITE_TEXT => $this->rewriteText($file, $replacements),
+                    RedactionPlanner::ACTION_RENDER_AND_REDACT => $this->renderAndRedact($file, $forms, $replacements),
                     default => [],
                 };
                 $this->withholdOriginal($file);
@@ -218,20 +219,59 @@ class Redactor
         $redaction->save();
     }
 
-    /** @return array{hits: array, pages: int, redacted_location: string} */
-    private function redactPdfFile(File $file, array $forms, bool $convertFirst): array
+    /** @return array{hits: array, pages: int, redacted_location: string, cells?: int} */
+    private function redactPdfFile(File $file, array $forms, bool $convertFirst, array $replacements = []): array
     {
         $dir = $this->tempDir();
+        $extra = [];
         try {
             $src = $dir . '/' . $this->safeBasename($file->location);
             file_put_contents($src, Storage::disk(config('pii.public_disk'))->get($file->location));
             if ($convertFirst) {
+                // Spreadsheets clip and reformat cells when printed, so the
+                // PDF pass alone can miss what stays readable: replace in the
+                // cells first (legacy .xls via an .xlsx copy).
+                $ext = $file->getExtension();
+                if ($ext === 'xls') {
+                    $src = $this->pdf->convertTo($src, $dir, 'xlsx');
+                    $ext = 'xlsx';
+                }
+                if (in_array($ext, SpreadsheetRedactor::FORMATS, true)) {
+                    $extra['cells'] = $this->sheets->redact($src, $ext, $replacements);
+                }
                 $src = $this->pdf->convertToPdf($src, $dir);
             }
             $out = $dir . '/redacted.pdf';
             $result = $this->pdf->redact($src, $out, $forms);
 
             $baseName = pathinfo($file->name, PATHINFO_FILENAME) ?: 'fail';
+            $key = Str::random(32) . '/' . $baseName . '.pdf';
+            Storage::disk(config('pii.public_disk'))->put($key, file_get_contents($out));
+            $file->redacted_location = $key;
+            $file->save();
+            return ['hits' => $result['hits'], 'pages' => $result['pages'], 'redacted_location' => $key] + $extra;
+        } finally {
+            $this->removeDir($dir);
+        }
+    }
+
+    /**
+     * .eml/.msg/.html: sanitised, replaced HTML rendition (verified by the
+     * renderer), rendered to PDF, then the PDF redactor runs over it as a
+     * second pass in case anything slipped into the rendering.
+     *
+     * @return array{hits: array, pages: int, redacted_location: string}
+     */
+    private function renderAndRedact(File $file, array $forms, array $replacements): array
+    {
+        $dir = $this->tempDir();
+        try {
+            $rendered = $dir . '/rendition.pdf';
+            $this->messages->toPdf($this->messages->render($file, $replacements), $rendered);
+            $out = $dir . '/redacted.pdf';
+            $result = $this->pdf->redact($rendered, $out, $forms);
+
+            $baseName = pathinfo($file->name, PATHINFO_FILENAME) ?: 'kiri';
             $key = Str::random(32) . '/' . $baseName . '.pdf';
             Storage::disk(config('pii.public_disk'))->put($key, file_get_contents($out));
             $file->redacted_location = $key;

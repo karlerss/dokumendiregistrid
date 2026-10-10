@@ -444,7 +444,7 @@
                 <h2 class="text-2xl font-bold mb-4">Seosed</h2>
             </div>
             <x-docs-table
-                :documents="$document->topic->documents->filter(fn ($d) => $d->id !== $document->id)"
+                :documents="$document->topic->documents->filter(fn ($d) => $d->id !== $document->id && ($d->visible || session('is_admin')))"
             ></x-docs-table>
         @endif
     </div>

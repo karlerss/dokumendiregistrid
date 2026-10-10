@@ -19,7 +19,25 @@ class Document extends Model
         'registration_date' => 'date',
         'visible' => 'boolean',
         'redacted_at' => 'datetime',
+        'removed_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        // A removal is irreversible by design: the files are gone, and the
+        // row is the tombstone that keeps fetchers from re-ingesting the
+        // document. Guard every path (hide/unhide buttons, full delete).
+        static::saving(function (Document $document) {
+            if ($document->getOriginal('removed_at') !== null && $document->visible) {
+                throw new \RuntimeException("Document {$document->id} was removed by a compliance decision and cannot be shown again.");
+            }
+        });
+        static::deleting(function (Document $document) {
+            if ($document->removed_at !== null) {
+                throw new \RuntimeException("Document {$document->id} was removed by a compliance decision; its row must stay to block re-ingestion.");
+            }
+        });
+    }
 
     /**
      * Documents that may be shown to non-admin visitors.
@@ -30,11 +48,21 @@ class Document extends Model
     }
 
     /**
-     * Documents the re-check daemon is responsible for: public at ingest.
+     * Subquery of hidden/removed document ids, for excluding them from the
+     * large listing queries without losing their index plans.
+     */
+    public static function hiddenIds(): \Closure
+    {
+        return fn($q) => $q->select('id')->from('documents')->where('visible', false);
+    }
+
+    /**
+     * Documents the re-check daemon is responsible for: public at ingest and
+     * not removed (a removed document has nothing left to re-check).
      */
     public function scopeRecheckable(Builder $query): Builder
     {
-        return $query->where('restriction', 'Avalik');
+        return $query->where('restriction', 'Avalik')->whereNull('documents.removed_at');
     }
 
     /**
@@ -129,6 +157,20 @@ class Document extends Model
         return $this->piiRedactions()->whereNull('reverted_at')->where('text_status', PiiRedaction::STATUS_APPLIED)->latest('id')->first();
     }
 
+    /**
+     * Removed through a compliance decision: files and text are gone, only
+     * an identifying row remains so the fetchers do not re-ingest it.
+     */
+    public function isRemoved(): bool
+    {
+        return $this->removed_at !== null;
+    }
+
+    public function reviewItems()
+    {
+        return $this->hasMany(ReviewItem::class);
+    }
+
     public function isRedacted(): bool
     {
         return $this->redacted_at !== null;
@@ -170,6 +212,10 @@ class Document extends Model
 
     public function reindex()
     {
+        if ($this->isRemoved()) {
+            throw new \RuntimeException("Document {$this->id} was removed by a compliance decision and cannot be re-fetched.");
+        }
+
         $this->deleteFiles();
 
         $f = (new AdrFetcher($this->organisation));

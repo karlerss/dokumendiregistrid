@@ -162,6 +162,38 @@ Admin-only routes (gated by an `is_admin` session flag set after logging
 in with `ADMIN_TOKEN`) cover document/file deletion, file replacement and
 re-indexing.
 
+Documents with `visible = false` (hidden or removed) are left out of
+search, the API list, dossiers, archive month pages, sitemaps and related
+documents. Removed documents answer `410 Gone`.
+
+## Compliance review queue (MCP)
+
+Documents that need a data-protection decision wait in a review queue
+(`review_items`). Every flagged document has one open item, which is closed
+by a single decision: **remove** (deletes every stored copy of the files plus
+the text, leaving only an identifying row so fetchers do not re-ingest it),
+**redact** (the PII assessment's plan, or strings the reviewer names) or **keep** (no change, with
+the reason recorded). Nothing is removed automatically. Every decision and
+its effects are logged in `compliance_actions`.
+
+Agents work the queue over MCP at `POST /mcp` (`routes/ai.php`, tools in
+`app/Mcp/Tools`). Every tool, reads included, requires the admin token:
+
+```bash
+claude mcp add --transport http registrid https://dokumendiregistrid.karlerss.com/mcp --header "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+Tools: `flag` (enter the URLs a letter names), `list_queue`, `get_item`,
+`resolve_urls`, `check_exposure` (live HTTP probes, also usable as proof) and
+`decide`. `remove` is a two-step call: a dry run returns a `plan_id`, which
+must be passed back with `confirm=true`. Each flag records whether its
+requester is a public-sector body and whether it concerns personal data;
+`list_queue` filters on both (`public_sector`, `personal_data`, the latter
+also matching documents the source restricts under AvTS § 35 lg 1 p 12).
+
+`COMPLIANCE_TOMBSTONE_KEEP_TEXT=false` makes removal also blank the title,
+recipient and responsible person (default: kept).
+
 ## Tests
 
 ```bash
@@ -194,7 +226,16 @@ in `pii_plan.md`.
   preview and apply a redaction, revert it, hide or unhide the document.
 - **Redaction** (`App\Lib\Pii\Redactor`): text, HTML, file names, metadata,
   signatures and the FTS index are rewritten; originals move to the private R2
-  bucket and PDFs get a truly redacted copy (PyMuPDF). Fully revertible.
+  bucket and touched files get a redacted copy: PDFs are redacted in place
+  (PyMuPDF), office files are converted to PDF first (spreadsheets get their
+  cells, comments, print headers and properties rewritten beforehand by
+  `App\Lib\Pii\SpreadsheetRedactor`, since printing clips cells and turns
+  long numbers into `3,94E+10`; `.xls` goes through an `.xlsx` copy), `.txt`
+  is rewritten, and
+  `.eml`/`.msg`/`.html` are rebuilt as sanitised HTML (headers and body, no
+  scripts, images or links), replaced, verified and rendered to PDF with
+  dompdf (`App\Lib\Pii\MessageRenderer`) before the PyMuPDF pass. Images and
+  signed containers are withheld. Fully revertible.
 
 Nothing is hidden or redacted automatically; the source registry, the model
 and takedown requesters never affect visibility directly.

@@ -35,6 +35,8 @@ class DocumentApiController extends Controller
             $query = DB::table('documents');
         }
 
+        $query->whereNotIn('documents.id', Document::hiddenIds());
+
         if ($request->org_ids) {
             $query->whereIn('organisation_id', explode(',', $request->org_ids));
         }
@@ -118,6 +120,10 @@ class DocumentApiController extends Controller
 
     public function show(Document $document): JsonResponse
     {
+        if ($document->isRemoved()) {
+            abort(410, 'This document has been removed.');
+        }
+
         if (!$document->visible) {
             abort(451, 'This document is access-restricted.');
         }

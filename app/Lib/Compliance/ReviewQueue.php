@@ -44,7 +44,7 @@ class ReviewQueue
             throw new \InvalidArgumentException('A flag needs a document or a file key.');
         }
 
-        return DB::transaction(function () use ($document, $fileKey, $source, $priority, $reference, $note, $refs) {
+        return $this->writeTransaction(function () use ($document, $fileKey, $source, $priority, $reference, $note, $refs) {
             $item = $this->latestItem($document, $fileKey);
 
             if ($item && $document?->isRemoved()) {
@@ -99,10 +99,45 @@ class ReviewQueue
             $item->save();
 
             return $item;
-        // SQLite allows one writer: the daemon and queue worker write all the
-        // time, and a deferred transaction that read first can be refused
-        // with "database is locked". Laravel retries those.
-        }, 5);
+        });
+    }
+
+    /**
+     * Run a read-then-write as one SQLite write transaction that takes the
+     * write lock up front (BEGIN IMMEDIATE). The daemon and queue worker
+     * write constantly; a default (deferred) transaction that has already
+     * read gets "database is locked" the moment another writer commits,
+     * and the busy timeout does not help. IMMEDIATE waits its turn under
+     * the busy timeout instead. Inside an outer transaction (tests, callers
+     * that already hold one) Laravel's nesting is used as usual.
+     */
+    private function writeTransaction(\Closure $callback): mixed
+    {
+        $connection = DB::connection();
+        if ($connection->getDriverName() !== 'sqlite' || $connection->transactionLevel() > 0) {
+            return $connection->transaction($callback, 3);
+        }
+
+        $pdo = $connection->getPdo();
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                $pdo->exec('BEGIN IMMEDIATE');
+            } catch (\PDOException $e) {
+                if ($attempt < 5 && str_contains($e->getMessage(), 'database is locked')) {
+                    usleep(200_000 * $attempt);
+                    continue;
+                }
+                throw $e;
+            }
+            try {
+                $result = $callback();
+                $pdo->exec('COMMIT');
+                return $result;
+            } catch (\Throwable $e) {
+                $pdo->exec('ROLLBACK');
+                throw $e;
+            }
+        }
     }
 
     // ---------------------------------------------------- per-source flags

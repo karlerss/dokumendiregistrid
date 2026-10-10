@@ -124,6 +124,13 @@ class DocumentCheckerTest extends TestCase
         $this->assertTrue($state->personal_data_restriction);
         $this->assertSame('2026-12-06 12:00:00', $state->next_check_at->toDateTimeString());
         $this->assertTrue($doc->fresh()->visible);
+
+        // Queued for a decision at top priority; nothing published changed.
+        $item = \App\Models\ReviewItem::where('document_id', $doc->id)->sole();
+        $this->assertTrue($item->isOpen());
+        $this->assertSame(\App\Models\ReviewItem::PRIORITY_NAMED, $item->priority);
+        $this->assertSame(['source' => 'recheck', 'status_change_id' => $change->id, 'personal_data' => true],
+            array_intersect_key($item->flags[0], array_flip(['source', 'status_change_id', 'personal_data'])));
     }
 
     public function test_public_to_gone_queues_a_change(): void
@@ -140,6 +147,7 @@ class DocumentCheckerTest extends TestCase
         $this->assertFalse($change->personal_data);
         $this->assertSame('gone', $this->state($doc)->remote_status);
         $this->assertSame(1, DocumentStatusChange::count());
+        $this->assertSame(\App\Models\ReviewItem::PRIORITY_GONE, \App\Models\ReviewItem::where('document_id', $doc->id)->sole()->priority);
     }
 
     public function test_repeated_same_result_does_not_queue(): void

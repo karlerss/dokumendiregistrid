@@ -26,6 +26,7 @@ class ReviewItem extends Model
     public const SOURCE_TAKEDOWN = 'takedown';
     public const SOURCE_PII = 'pii';
     public const SOURCE_ADMIN = 'haldus'; // a decision taken directly in /haldus
+    public const SOURCE_HIDDEN = 'peidetud'; // hidden earlier, files still public
 
     // Lower is more urgent.
     public const PRIORITY_NAMED = 1;         // personal-data restriction, letter, takedown

@@ -7,6 +7,7 @@ use App\Models\Document;
 use App\Models\DocumentRemoteState;
 use App\Models\DocumentStatusChange;
 use App\Lib\Compliance\AdminActions;
+use App\Lib\Compliance\ReviewQueue;
 use App\Lib\Compliance\DecisionException;
 use App\Models\ComplianceAction;
 use App\Models\ReviewItem;
@@ -138,7 +139,7 @@ class RecheckController extends Controller
                 ReviewItem::DECISION_REMOVE,
                 $reason,
                 ReviewItem::SOURCE_RECHECK,
-                $this->priority($change),
+                ReviewQueue::priorityForChange($change),
                 $request->input('reference'),
                 $change->transitionLabel(),
                 ['status_change_id' => $change->id, 'personal_data' => (bool)$change->personal_data],
@@ -214,15 +215,6 @@ class RecheckController extends Controller
             'basis' => $change->basis,
             'personal_data' => (bool)$change->personal_data,
         ], fn($v) => $v !== null);
-    }
-
-    private function priority(DocumentStatusChange $change): int
-    {
-        return match (true) {
-            (bool)$change->personal_data => ReviewItem::PRIORITY_NAMED,
-            $change->to_status === DocumentRemoteState::STATUS_RESTRICTED => ReviewItem::PRIORITY_RESTRICTED,
-            default => ReviewItem::PRIORITY_GONE,
-        };
     }
 
     private function authorizeAdmin(): void

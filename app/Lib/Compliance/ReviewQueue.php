@@ -2,6 +2,10 @@
 
 namespace App\Lib\Compliance;
 
+use App\Models\TakedownRequest;
+use App\Models\PiiAssessment;
+use App\Models\DocumentStatusChange;
+use App\Models\DocumentRemoteState;
 use App\Models\ComplianceAction;
 use App\Models\Document;
 use App\Models\ReviewItem;
@@ -96,6 +100,55 @@ class ReviewQueue
 
             return $item;
         });
+    }
+
+    // ---------------------------------------------------- per-source flags
+
+    /** A source-registry restriction or removal found by the re-check daemon. */
+    public function flagStatusChange(DocumentStatusChange $change): ?ReviewItem
+    {
+        $document = $change->document;
+        if (!$document || $change->to_status === DocumentRemoteState::STATUS_PUBLIC) {
+            return null; // a document becoming public again needs no data-protection review
+        }
+        return $this->flag($document, null, ReviewItem::SOURCE_RECHECK, self::priorityForChange($change), null,
+            $change->transitionLabel(), ['status_change_id' => $change->id, 'personal_data' => (bool)$change->personal_data]);
+    }
+
+    /** A takedown request whose sender confirmed their e-mail address. */
+    public function flagTakedown(TakedownRequest $takedown): ?ReviewItem
+    {
+        if (!$takedown->document) {
+            return null;
+        }
+        return $this->flag($takedown->document, null, ReviewItem::SOURCE_TAKEDOWN, ReviewItem::PRIORITY_NAMED,
+            "eemaldamistaotlus #{$takedown->id}", $takedown->legal_basis, $takedown->reviewFacts());
+    }
+
+    /** An unreviewed PII assessment in the HIGH band. */
+    public function flagAssessment(PiiAssessment $assessment): ?ReviewItem
+    {
+        if ($assessment->band !== PiiAssessment::BAND_HIGH || $assessment->isReviewed() || !$assessment->document) {
+            return null;
+        }
+        return $this->flag($assessment->document, null, ReviewItem::SOURCE_PII, ReviewItem::PRIORITY_PII, null,
+            $assessment->recommendationLabel(), ['assessment_id' => $assessment->id, 'personal_data' => true]);
+    }
+
+    /** A document hidden earlier whose files are still publicly downloadable. */
+    public function flagHiddenWithPublicFiles(Document $document): ?ReviewItem
+    {
+        return $this->flag($document, null, ReviewItem::SOURCE_HIDDEN, ReviewItem::PRIORITY_NAMED, null,
+            'peidetud, kuid failid on avalikult alla laaditavad');
+    }
+
+    public static function priorityForChange(DocumentStatusChange $change): int
+    {
+        return match (true) {
+            (bool)$change->personal_data => ReviewItem::PRIORITY_NAMED,
+            $change->to_status === DocumentRemoteState::STATUS_RESTRICTED => ReviewItem::PRIORITY_RESTRICTED,
+            default => ReviewItem::PRIORITY_GONE,
+        };
     }
 
     private function latestItem(?Document $document, ?string $fileKey): ?ReviewItem

@@ -3,7 +3,7 @@
     $item = $admin['item'];
     $pii = $admin['pii'];
     $assessment = $pii['assessment'];
-    $sourceLabels = ['letter' => 'kiri', 'recheck' => 'allika kontroll', 'takedown' => 'eemaldamistaotlus', 'pii' => 'isikuandmete hinnang', 'haldus' => 'haldus'];
+    $sourceLabels = ['letter' => 'kiri', 'recheck' => 'allika kontroll', 'takedown' => 'eemaldamistaotlus', 'pii' => 'isikuandmete hinnang', 'haldus' => 'haldus', 'peidetud' => 'peidetud, failid avalikud'];
     $decisionLabels = ['remove' => 'eemaldatud', 'redact' => 'redigeeritud', 'keep' => 'alles jäetud'];
 @endphp
 

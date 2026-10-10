@@ -26,8 +26,12 @@ class AssessDocumentPii implements ShouldQueue
     public function handle(Assessor $assessor): void
     {
         $document = Document::find($this->documentId);
-        if ($document) {
-            $assessor->assess($document);
+        if ($document && ($assessment = $assessor->assess($document))) {
+            try {
+                app(\App\Lib\Compliance\ReviewQueue::class)->flagAssessment($assessment);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
     }
 }

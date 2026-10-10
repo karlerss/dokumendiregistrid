@@ -2,6 +2,8 @@
 
 namespace App\Lib\Recheck;
 
+use Illuminate\Support\Facades\Log;
+use App\Lib\Compliance\ReviewQueue;
 use App\Models\Document;
 use App\Models\DocumentRemoteState;
 use App\Models\DocumentStatusChange;
@@ -47,7 +49,7 @@ class DocumentChecker
     {
         $now = Carbon::instance($now ?? now());
 
-        return DB::transaction(function () use ($document, $check, $now) {
+        $change = DB::transaction(function () use ($document, $check, $now) {
             /** @var DocumentRemoteState $state */
             $state = DocumentRemoteState::query()->firstOrNew(['document_id' => $document->id]);
 
@@ -105,6 +107,15 @@ class DocumentChecker
                 'http_status' => $check->httpStatus,
             ]);
         });
+
+        if ($change) {
+            try {
+                app(ReviewQueue::class)->flagStatusChange($change);
+            } catch (\Throwable $e) {
+                Log::error('Review queue: could not flag status change', ['status_change_id' => $change->id, 'error' => $e->getMessage()]);
+            }
+        }
+        return $change;
     }
 
     private function isTransition(

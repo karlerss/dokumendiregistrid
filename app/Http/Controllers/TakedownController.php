@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Lib\Compliance\ReviewQueue;
 use App\Models\ReviewItem;
 use App\Lib\Compliance\DecisionException;
 use App\Lib\Compliance\AdminActions;
@@ -75,6 +76,11 @@ class TakedownController extends Controller
         }
 
         $takedownRequest->markVerified();
+        try {
+            app(ReviewQueue::class)->flagTakedown($takedownRequest);
+        } catch (\Throwable $e) {
+            report($e);
+        }
         $this->notifyAdminAboutVerifiedRequest($takedownRequest);
 
         return redirect()->route('takedowns.track', $takedownRequest)
@@ -271,11 +277,7 @@ class TakedownController extends Controller
 
     private function takedownFacts(TakedownRequest $takedownRequest): array
     {
-        return [
-            'takedown_id' => $takedownRequest->id,
-            'public_sector' => $takedownRequest->isFromPublicSector(),
-            'personal_data' => str_starts_with($takedownRequest->legal_basis, 'IKÜM'),
-        ];
+        return $takedownRequest->reviewFacts();
     }
 
     private function authorizeAdmin(): void

@@ -41,6 +41,16 @@ class TakedownRequest extends Model
         return false;
     }
 
+    /** Facts a review-queue flag records about the request. */
+    public function reviewFacts(): array
+    {
+        return [
+            'takedown_id' => $this->id,
+            'public_sector' => $this->isFromPublicSector(),
+            'personal_data' => str_starts_with((string)$this->legal_basis, 'IKÜM'),
+        ];
+    }
+
     public function isFromPublicSector(): bool
     {
         return self::isPublicSectorEmail($this->author_email);

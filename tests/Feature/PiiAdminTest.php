@@ -87,6 +87,7 @@ class PiiAdminTest extends TestCase
         $this->asAdmin()->get(route('document', $doc))->assertOk()
             ->assertSee('Mari Maasikas')
             ->assertSee('Redigeerimise plaan')
+            ->assertSee('Rakenda redigeerimine')
             ->assertSee('M. M.');
     }
 
@@ -112,6 +113,24 @@ class PiiAdminTest extends TestCase
         $this->assertNotSame($a->id, $latest->id);
         $this->assertSame(PiiAssessment::BAND_INFO, $latest->band);
         $this->assertSame(Rules::VERSION, $latest->rules_version);
+    }
+
+    public function test_apply_plan_button_redacts_with_the_assessment_plan(): void
+    {
+        Queue::fake();
+        $doc = $this->doc();
+        $this->assessed($doc);
+
+        // What the "Rakenda redigeerimine" form under the plan submits.
+        $this->asAdmin()->from(route('document', $doc))
+            ->post(route('document.decide', $doc), ['decision' => 'redact', 'reason' => 'Isikuandmete hinnangu plaan.'])
+            ->assertRedirect(route('document', $doc))->assertSessionHas('success');
+
+        $redaction = PiiRedaction::sole();
+        $this->assertNotNull($redaction->assessment_id, 'plan comes from the assessment, not from strings');
+        $this->assertContains('Mari Maasikas', array_column($redaction->plan['replacements'], 'surface'));
+        $this->assertSame('redact', \App\Models\ReviewItem::where('document_id', $doc->id)->sole()->decision);
+        Queue::assertPushed(RedactDocument::class, 1);
     }
 
     public function test_redact_creates_plan_and_dispatches_only_once(): void

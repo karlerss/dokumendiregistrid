@@ -305,7 +305,7 @@
             </div>
         @elseif($plan = $pii['plan'])
             <div class="border-t pt-2 mt-2">
-                <div class="font-semibold">Redigeerimise plaan (eelvaade; rakendub nupuga „Redigeeri“)</div>
+                <div class="font-semibold">Redigeerimise plaan (eelvaade)</div>
                 @if(empty($plan['replacements']))
                     <div class="text-gray-500">Hinnangu järgi pole midagi asendada.</div>
                 @else
@@ -328,6 +328,18 @@
                             @endforeach
                         </details>
                     @endif
+                    @unless($document->isRemoved())
+                        {{-- Applies exactly this plan: the "redact" decision without strings. --}}
+                        <form method="post" action="{{ route('document.decide', $document) }}" class="mt-3"
+                              onsubmit="return confirm('Rakendada redigeerimine? Tekst asendatakse kohe; failid asendatakse redigeeritud koopiatega ja originaalid tõstetakse privaatsesse hoidlasse.')">
+                            @csrf
+                            <input type="hidden" name="decision" value="redact"/>
+                            <label class="block text-gray-600">Põhjus (säilib aruandes)</label>
+                            <input name="reason" required class="w-full border rounded p-2 mb-2"
+                                   value="Isikuandmete hinnangu plaan ({{ $assessment->bandLabel() }}): {{ count($plan['replacements']) }} asendust eraisikute andmetes."/>
+                            <x-bladewind.button size="small" color="orange" can_submit="true">Rakenda redigeerimine</x-bladewind.button>
+                        </form>
+                    @endunless
                 @endif
             </div>
         @endif

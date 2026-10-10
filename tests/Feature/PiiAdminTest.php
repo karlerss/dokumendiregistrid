@@ -206,6 +206,24 @@ class PiiAdminTest extends TestCase
             ->assertDontSee('kokku</div>', false);
     }
 
+    public function test_removed_documents_are_left_out_of_the_list_and_counts(): void
+    {
+        $kept = $this->doc();
+        $this->assessed($kept);
+        $removed = Document::create([
+            'organisation_id' => $this->org->id, 'url' => 'https://adr.rik.ee/som/dokument/2', 'original_id' => '2',
+            'title' => 'Eemaldatud kiri', 'reference' => 'R2', 'registration_date' => '2024-01-01', 'type' => 'Kiri', 'restriction' => 'Avalik',
+        ]);
+        File::create(['document_id' => $removed->id, 'name' => 'kiri.pdf', 'location' => 'y/kiri.pdf', 'contents' => 'Tere Mari Maasikas, siin on pikem tekst mis ületab viiskümmend märki kindlasti.', 'parsed_with' => \App\Lib\Parser\PdfParser::class]);
+        $this->assessed($removed);
+        $removed->forceFill(['removed_at' => now(), 'visible' => false])->save();
+
+        $this->asAdmin()->get(route('pii.index'))->assertOk()
+            ->assertSee('1 läbivaatamata')
+            ->assertSee('Redigeeri kõik filtreeritud (1)')
+            ->assertDontSee('Eemaldatud kiri');
+    }
+
     public function test_redact_all_button_queues_the_batch_and_the_batch_decides_each_document(): void
     {
         Queue::fake();

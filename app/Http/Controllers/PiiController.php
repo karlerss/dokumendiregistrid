@@ -66,6 +66,8 @@ class PiiController extends Controller
 
         $bandCounts = PiiAssessment::query()
             ->whereIn('id', PiiAssessment::query()->selectRaw('max(id)')->groupBy('document_id'))
+            // Removed documents have nothing left to review.
+            ->whereHas('document', fn($q) => $q->whereNull('removed_at'))
             // Only what still needs reviewing: the per-band figures count unreviewed assessments.
             ->selectRaw("sum(reviewed_at is null) as unreviewed, sum(reviewed_at is null and band = 'HIGH') as high, sum(reviewed_at is null and band = 'WARN') as warn, sum(reviewed_at is null and band = 'INFO') as info")
             ->first();
@@ -138,6 +140,7 @@ class PiiController extends Controller
             ->whereIn('pii_assessments.id', $latestIds)
             ->join('documents', 'documents.id', '=', 'pii_assessments.document_id')
             ->join('organisations', 'organisations.id', '=', 'documents.organisation_id')
+            ->whereNull('documents.removed_at')
             ->when($band, fn($q) => $q->where('pii_assessments.band', $band))
             ->when($review === 'unreviewed', fn($q) => $q->whereNull('pii_assessments.reviewed_at'))
             ->when($review === 'reviewed', fn($q) => $q->whereNotNull('pii_assessments.reviewed_at'))

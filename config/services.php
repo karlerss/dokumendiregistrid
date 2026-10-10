@@ -18,6 +18,14 @@ return [
         'token' => env('POSTMARK_TOKEN'),
     ],
 
+    // Purging adr-docs.karlerss.com URLs from Cloudflare's edge cache when
+    // the app deletes or withholds a public file (R2 objects are cached for
+    // up to 4 hours). Token needs only Zone > Cache Purge > Purge.
+    'cloudflare' => [
+        'zone_id' => env('CLOUDFLARE_ZONE_ID'),
+        'api_token' => env('CLOUDFLARE_API_TOKEN'),
+    ],
+
     'openai' => [
         'secret' => env('OPENAI_SECRET'),
         'model' => env('OPENAI_MODEL', 'gpt-5.4'),

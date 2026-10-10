@@ -320,6 +320,8 @@ class ComplianceQueueTest extends TestCase
         $this->get(route('document', $doc))->assertStatus(410);
         $this->get('/?query=Maasikas')->assertDontSee('Ametiauto');
         $this->assertTrue(ComplianceAction::where('review_item_id', $item->id)->where('effect', 'decided_remove')->exists());
+        $cdn = ComplianceAction::where('review_item_id', $item->id)->where('effect', 'cdn_purged')->sole()->result;
+        $this->assertTrue($cdn['skipped'], 'no Cloudflare credentials in tests');
         // Two root files; the child goes with its parent.
         $this->assertSame(2, ComplianceAction::where('review_item_id', $item->id)->where('effect', 'file_deleted')->count());
 
@@ -460,6 +462,22 @@ class ComplianceQueueTest extends TestCase
         $this->assertSame(200, $out['documents'][0]['page']['http']);
         $this->assertSame(404, $out['documents'][0]['objects'][0]['http']);
         $this->assertStringEndsWith('/a%20b.pdf', $out['documents'][0]['objects'][0]['url']);
-        Http::assertSent(fn($r) => $r->method() === 'HEAD' && $r->url() === "https://dokumendiregistrid.karlerss.com/dokumendid/{$doc->id}");
+        Http::assertSent(fn($r) => $r->method() === 'GET' && $r->hasHeader('Range', 'bytes=0-0') && $r->url() === "https://dokumendiregistrid.karlerss.com/dokumendid/{$doc->id}");
+    }
+
+    public function test_check_exposure_counts_a_file_cloudflare_still_serves_from_cache(): void
+    {
+        $doc = $this->doc(['visible' => false]);
+        $this->file($doc, 'a.pdf');
+        Http::fake([
+            'dokumendiregistrid.karlerss.com/*' => Http::response('', 451),
+            'adr-docs.karlerss.com/*' => Http::response('%', 206, ['cf-cache-status' => 'HIT']),
+        ]);
+
+        $out = $this->tool(CheckExposureTool::class, ['document_ids' => [$doc->id]]);
+
+        $this->assertSame(1, $out['exposed']);
+        $this->assertSame(206, $out['documents'][0]['objects'][0]['http']);
+        $this->assertSame('HIT', $out['documents'][0]['objects'][0]['cache']);
     }
 }

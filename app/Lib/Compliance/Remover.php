@@ -2,6 +2,7 @@
 
 namespace App\Lib\Compliance;
 
+use App\Lib\CdnPurge;
 use App\Models\ComplianceAction;
 use App\Models\Document;
 use App\Models\DocumentStatusChange;
@@ -85,6 +86,20 @@ class Remover
             $log('file_deleted', ['file_id' => $file->id, 'name' => $file->name, 'objects' => $objects]);
         }
 
+        // File::delete() purges each key it deletes; purging the full set
+        // again here is idempotent and puts the outcome in the audit log.
+        $public = [];
+        foreach (ComplianceAction::where('review_item_id', $item->id)->where('effect', 'file_deleted')->get() as $action) {
+            foreach ($action->result['objects'] ?? [] as $object) {
+                if (str_starts_with($object, 'r2:')) {
+                    $public[] = substr($object, 3);
+                }
+            }
+        }
+        if ($public) {
+            $log('cdn_purged', app(CdnPurge::class)->keys($public));
+        }
+
         // PII rows hold names and the unredacted strings: storage of the very
         // data being removed.
         $pii = [
@@ -139,7 +154,7 @@ class Remover
             'file_key' => $key,
             'effect' => 'orphan_object_deleted',
             'actor' => $actor,
-            'result' => ['disk' => 'r2', 'key' => $key],
+            'result' => ['disk' => 'r2', 'key' => $key, 'cdn' => app(CdnPurge::class)->keys([$key])],
         ]);
     }
 

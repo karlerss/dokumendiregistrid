@@ -194,6 +194,14 @@ also matching documents the source restricts under AvTS § 35 lg 1 p 12).
 `COMPLIANCE_TOMBSTONE_KEEP_TEXT=false` makes removal also blank the title,
 recipient and responsible person (default: kept).
 
+Files are served from R2 through Cloudflare, which caches them for up to
+4 hours. Set `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_API_TOKEN` (a token with
+only Zone > Cache Purge > Purge on the zone) so every delete, withhold or
+removal of a public file also purges its URL; without them a deleted file
+can stay downloadable from the cache. `check_exposure` probes with a
+one-byte GET, so it sees what the cache serves and reports `cache`
+(`HIT`, `MISS`, ...).
+
 ## Tests
 
 ```bash

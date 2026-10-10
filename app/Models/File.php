@@ -66,7 +66,8 @@ class File extends Model
 
     public function delete()
     {
-        DB::transaction(function () {
+        $purge = [];
+        DB::transaction(function () use (&$purge) {
             // Recursively delete children first
             foreach ($this->children as $child) {
                 $child->delete();
@@ -80,11 +81,15 @@ class File extends Model
                 Storage::disk('r2_private')->delete($private);
             } else {
                 Storage::disk('r2')->delete($location);
+                $purge[] = $location;
             }
             if ($redacted) {
                 Storage::disk('r2')->delete($redacted);
+                $purge[] = $redacted;
             }
         });
+        // Children purged their own keys in their own delete().
+        app(\App\Lib\CdnPurge::class)->keys($purge);
     }
 
     /**

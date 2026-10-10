@@ -307,6 +307,7 @@ class Redactor
                 fclose($stream);
             }
             $public->delete($file->location);
+            app(\App\Lib\CdnPurge::class)->keys([$file->location]);
         }
         $file->original_private_location = $file->location;
         $file->original_withheld = true;
@@ -360,6 +361,7 @@ class Redactor
                 }
                 if ($file->redacted_location) {
                     Storage::disk(config('pii.public_disk'))->delete($file->redacted_location);
+                    app(\App\Lib\CdnPurge::class)->keys([$file->redacted_location]);
                     $file->redacted_location = null;
                 }
                 $file->save();

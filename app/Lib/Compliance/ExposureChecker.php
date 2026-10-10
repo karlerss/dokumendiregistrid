@@ -52,13 +52,13 @@ class ExposureChecker
 
         $now = now()->toIso8601String();
         foreach ($reports as &$r) {
-            $r['page']['http'] = $status[$r['page']['url']];
+            $r['page'] += $status[$r['page']['url']];
             foreach ($r['objects'] as &$o) {
-                $o['http'] = $status[$o['url']];
+                $o += $status[$o['url']];
             }
             unset($o);
-            $r['exposed'] = $r['page']['http'] === 200 || $r['listed_in_search_api_sitemap']
-                || collect($r['objects'])->contains(fn($o) => $o['http'] === 200);
+            $r['exposed'] = self::served($r['page']['http']) || $r['listed_in_search_api_sitemap']
+                || collect($r['objects'])->contains(fn($o) => self::served($o['http']));
             $r['checked_at'] = $now;
         }
 
@@ -81,7 +81,7 @@ class ExposureChecker
         $now = now()->toIso8601String();
 
         return array_map(fn($k, $u) => [
-            'key' => $k, 'url' => $u, 'http' => $status[$u], 'exposed' => $status[$u] === 200, 'checked_at' => $now,
+            'key' => $k, 'url' => $u, ...$status[$u], 'exposed' => self::served($status[$u]['http']), 'checked_at' => $now,
         ], $keys, $urls);
     }
 
@@ -96,12 +96,21 @@ class ExposureChecker
         return rtrim((string)config('app.url'), '/') . $path;
     }
 
+    /** 200, or 206 for the one-byte range request: the content is served. */
+    private static function served(?int $status): bool
+    {
+        return $status === 200 || $status === 206;
+    }
+
     /**
-     * HEAD each URL; the status, or null when the probe itself failed
-     * (timeout, DNS).
+     * Fetch the first byte of each URL, the way a visitor would. Not HEAD:
+     * Cloudflare answers HEAD from R2 directly but serves GET from its edge
+     * cache (max-age 4h), so a deleted file can still be downloadable while
+     * HEAD says 404. Returns the status (null when the probe itself failed:
+     * timeout, DNS) and Cloudflare's cache status.
      *
      * @param string[] $urls
-     * @return array<string, ?int>
+     * @return array<string, array{http: ?int, cache: ?string}>
      */
     private function probeMany(array $urls): array
     {
@@ -110,14 +119,16 @@ class ExposureChecker
             $responses = Http::pool(fn(Pool $pool) => array_map(
                 fn($url) => $pool->as($url)
                     ->timeout(self::TIMEOUT)
-                    ->withHeaders(['User-Agent' => 'dokumendiregistrid-compliance-probe'])
+                    ->withHeaders(['User-Agent' => 'dokumendiregistrid-compliance-probe', 'Range' => 'bytes=0-0'])
                     ->withoutRedirecting()
-                    ->head($url),
+                    ->get($url),
                 $chunk,
             ));
             foreach ($chunk as $url) {
                 $response = $responses[$url] ?? null;
-                $status[$url] = $response instanceof Response ? $response->status() : null;
+                $status[$url] = $response instanceof Response
+                    ? ['http' => $response->status(), 'cache' => $response->header('cf-cache-status') ?: null]
+                    : ['http' => null, 'cache' => null];
             }
         }
         return $status;

@@ -48,7 +48,15 @@ class ComplianceRedactHighRisk extends Command
         $counts = ['redact' => 0, 'skipped' => 0, 'failed' => 0];
         $planner = new RedactionPlanner();
 
-        foreach (Document::query()->whereIn('id', $documentIds)->orderBy('id')->cursor() as $document) {
+        // Fetch documents one by one rather than through a cursor: an open
+        // cursor keeps a SQLite read snapshot alive, and the write lock a
+        // decision needs cannot be taken on a connection with a stale
+        // snapshot while the daemon keeps committing.
+        foreach ($documentIds->sort()->values() as $documentId) {
+            $document = Document::find($documentId);
+            if (!$document) {
+                continue;
+            }
             if ($limit && $counts['redact'] >= $limit) {
                 break;
             }

@@ -337,6 +337,11 @@ class RiigikoguFetcher extends BaseFetcher implements DateTypeBasedList
             $filename = $headerName
                 ?? ($label !== '' ? $label : urldecode(basename($url)));
             $filename = $this->sanitizeFilename($filename);
+            // Shortened names can collide: keep both files.
+            for ($n = 2; file_exists($temp . '/' . $filename); $n++) {
+                $ext = pathinfo($filename, PATHINFO_EXTENSION);
+                $filename = preg_replace('/( \(\d+\))?(\.' . preg_quote($ext, '/') . ')?$/u', " ($n)" . ($ext !== '' ? '.' . $ext : ''), $filename, 1);
+            }
             file_put_contents($temp . '/' . $filename, $response->body());
         }
 
@@ -377,12 +382,21 @@ class RiigikoguFetcher extends BaseFetcher implements DateTypeBasedList
         return null;
     }
 
+    /** Filesystems allow 255 bytes per name; EU document titles run past that. */
+    private const MAX_FILENAME_BYTES = 200;
+
     private function sanitizeFilename(string $filename): string
     {
         $filename = trim($filename);
         $filename = preg_replace('/\s+/', ' ', $filename);
-        $filename = str_replace('%', '_percent', $filename);
-        return $filename;
+        $filename = str_replace(['%', '/', '\\'], ['_percent', '_', '_'], $filename);
+        if (strlen($filename) <= self::MAX_FILENAME_BYTES) {
+            return $filename;
+        }
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+        $ext = $ext !== '' && strlen($ext) <= 10 ? '.' . $ext : '';
+        $base = mb_strcut(substr($filename, 0, strlen($filename) - strlen($ext)), 0, self::MAX_FILENAME_BYTES - strlen($ext), 'UTF-8');
+        return rtrim($base, ' ._-') . $ext;
     }
 
     static function getFetcherType(): string

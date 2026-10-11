@@ -188,6 +188,30 @@ class RiigikoguFetcherTest extends TestCase
         );
     }
 
+    public function test_store_shortens_file_names_longer_than_the_filesystem_allows()
+    {
+        $docHtml = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_document_f0d829e2.html');
+        $long = str_repeat('määruse_muutmise_seletuskiri_', 12) . '.pdf';
+        $this->assertGreaterThan(255, strlen($long));
+
+        $base = 'https://www.riigikogu.ee/tegevus/dokumendiregister/';
+        Storage::fake('r2');
+        Http::fake([
+            $base . 'dokument/f0d829e2-03b2-4f47-b215-49544e895084/' => Http::response($docHtml, 200),
+            'https://www.riigikogu.ee/download/73629e02-e261-407b-9b02-f16e656968b3' => Http::response(file_get_contents(__DIR__ . '/../__fixtures/pii_ex/julg.pdf'), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($long),
+            ]),
+        ]);
+
+        $document = (new RiigikoguFetcher($this->makeOrg()))->store('f0d829e2-03b2-4f47-b215-49544e895084');
+
+        $name = $document->files->first()->name;
+        $this->assertLessThanOrEqual(200, strlen($name));
+        $this->assertStringEndsWith('.pdf', $name);
+        $this->assertTrue(mb_check_encoding($name, 'UTF-8'));
+    }
+
     public function test_store_downloads_single_public_pdf_with_extension_from_header()
     {
         // Doc f0d829e2 has one public file whose link text is the label "Arupärimine"

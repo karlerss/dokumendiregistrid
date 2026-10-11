@@ -127,7 +127,9 @@ class RiigikoguFetcher extends BaseFetcher implements DateTypeBasedList
             $html = $response->body();
             $crawler = new Crawler($html);
 
-            if ($crawler->filter('section.content-section')->count() === 0) {
+            // 2026 redesign: unknown UUIDs render "Laadimine ebaõnnestus" with no metadata.
+            $redesign = $crawler->filter('data-table, div.font-bold')->count() > 0 || str_contains($html, 'Laadimine ebaõnnestus');
+            if ($crawler->filter('section.content-section')->count() === 0 && !$redesign) {
                 return RemoteCheck::error(RemoteCheck::ERROR_UNPARSEABLE, $response->status(), 'No content section in response');
             }
 
@@ -184,6 +186,9 @@ class RiigikoguFetcher extends BaseFetcher implements DateTypeBasedList
         $data = [];
 
         $tables = $crawler->filter('section.content-section table.table.table-striped');
+        if ($tables->count() === 0) {
+            return $this->parseRedesignedDocumentPage($crawler);
+        }
 
         $metaTable = $tables->eq(0);
         if ($metaTable->count() > 0) {
@@ -233,6 +238,61 @@ class RiigikoguFetcher extends BaseFetcher implements DateTypeBasedList
                 }
             });
         }
+
+        $data['_file_urls'] = $fileUrls;
+        $data['_file_names'] = $fileNames;
+        $data['_restriction_bases'] = array_values(array_unique($restrictionBases));
+        $data['_restriction'] = $anyPublic || !$anyRestricted ? 'Avalik' : 'Asutusesiseseks kasutamiseks';
+
+        return $data;
+    }
+
+    /**
+     * The 2026 redesign: metadata as "label: value" div pairs, files in a
+     * <data-table> of custom elements whose <file-download> carries the URL,
+     * name and restriction type. Same return shape as parseDocumentPage.
+     */
+    private function parseRedesignedDocumentPage(Crawler $crawler): array
+    {
+        $data = [];
+        $crawler->filter('div.font-bold')->each(function (Crawler $label) use (&$data) {
+            $value = $label->nextAll()->filter('div')->first();
+            $key = rtrim(trim($label->text()), ':');
+            if ($key !== '' && $value->count() > 0) {
+                $data[$key] = trim(preg_replace('/\s+/u', ' ', $value->text()));
+            }
+        });
+
+        $fileUrls = [];
+        $fileNames = [];
+        $restrictionBases = [];
+        $anyPublic = false;
+        $anyRestricted = false;
+        $crawler->filter('data-table table-body table-row')->each(function (Crawler $row) use (
+            &$fileUrls, &$fileNames, &$restrictionBases, &$anyPublic, &$anyRestricted
+        ) {
+            $cells = $row->filter('table-cell');
+            if ($cells->count() < 3) {
+                return;
+            }
+            $file = $cells->eq(0)->filter('file-download');
+            $restrictionText = trim($cells->eq(1)->text());
+            $basisText = trim($cells->eq(2)->text());
+            $public = $restrictionText === 'Avalik' || ($file->count() > 0 && $file->attr('access-restriction-type') === 'PUBLIC');
+
+            if ($public) {
+                $anyPublic = true;
+                if ($file->count() > 0 && $file->attr('url')) {
+                    $fileUrls[] = $this->absolutizeUrl($file->attr('url'));
+                    $fileNames[] = trim((string)($file->attr('file-name') ?: $file->attr('title')));
+                }
+            } else {
+                $anyRestricted = true;
+                if ($basisText !== '') {
+                    $restrictionBases[] = $basisText;
+                }
+            }
+        });
 
         $data['_file_urls'] = $fileUrls;
         $data['_file_names'] = $fileNames;

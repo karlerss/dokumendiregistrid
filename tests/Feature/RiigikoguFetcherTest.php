@@ -25,6 +25,19 @@ class RiigikoguFetcherTest extends TestCase
         ]);
     }
 
+    public function test_parse_redesigned_document_page()
+    {
+        $html = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_document_redesign_c1ba0366.html');
+        $data = (new RiigikoguFetcher($this->makeOrg()))->parseDocumentPage($html);
+
+        $this->assertSame('MAJK protokoll nr 190 5.05.2026', $data['Pealkiri']);
+        $this->assertSame('15.05.2026', $data['Dokumendi loomise kuupäev']);
+        $this->assertSame('Avalik', $data['_restriction']);
+        $this->assertCount(4, $data['_file_urls']);
+        $this->assertContains('Keskkonnaamet.pdf', $data['_file_names']);
+        $this->assertStringStartsWith('https://www.riigikogu.ee/wp-json/riigikogu/v1/files/', $data['_file_urls'][0]);
+    }
+
     public function test_parse_list_page_filters_out_uksuse_istungi_paevakorrapunkt()
     {
         $html = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_list_2026-05-14_page1.html');

@@ -394,6 +394,41 @@ class RemoteCheckTest extends TestCase
         $this->assertSame(RemoteCheck::GONE, $check->outcome);
     }
 
+    public function test_riigikogu_redesigned_public_document(): void
+    {
+        $doc = $this->riigikoguDoc('c1ba0366-ae29-4c45-a040-bcfab845c7f0');
+        Http::fake([$doc->url => Http::response($this->fixture('riigikogu_document_redesign_c1ba0366.html'), 200)]);
+
+        $check = $doc->organisation->getFetcher()->checkRemote($doc);
+
+        $this->assertSame(RemoteCheck::PUBLIC, $check->outcome);
+        $this->assertSame('Avalik', $check->restriction);
+    }
+
+    public function test_riigikogu_redesigned_restricted_document(): void
+    {
+        $doc = $this->riigikoguDoc('c1ba0366-ae29-4c45-a040-bcfab845c7f0');
+        $html = '<html><body><div class="flex flex-wrap gap-x-2"><div class="w-full md:w-40 font-bold">Pealkiri:</div><div class="flex-1">Kiri</div></div>'
+            . '<data-table><table-body><table-row><table-cell><file-download file-name="kiri.pdf" access-restriction-type="RESTRICTED"></file-download></table-cell>'
+            . '<table-cell>Asutusesiseseks kasutamiseks</table-cell><table-cell>AvTS § 35 lg 1 p 12</table-cell><table-cell>01.01.2099</table-cell></table-row></table-body></data-table></body></html>';
+        Http::fake([$doc->url => Http::response($html, 200)]);
+
+        $check = $doc->organisation->getFetcher()->checkRemote($doc);
+
+        $this->assertSame(RemoteCheck::RESTRICTED, $check->outcome);
+        $this->assertSame(['AvTS § 35 lg 1 p 12'], $check->bases);
+    }
+
+    public function test_riigikogu_redesigned_unknown_uuid_is_gone(): void
+    {
+        $doc = $this->riigikoguDoc('00000000-0000-0000-0000-000000000000');
+        Http::fake([$doc->url => Http::response($this->fixture('riigikogu_document_redesign_unknown.html'), 200)]);
+
+        $check = $doc->organisation->getFetcher()->checkRemote($doc);
+
+        $this->assertSame(RemoteCheck::GONE, $check->outcome);
+    }
+
     public function test_riigikogu_page_without_content_section_is_unparseable(): void
     {
         $doc = $this->riigikoguDoc('00000000-0000-0000-0000-000000000000');

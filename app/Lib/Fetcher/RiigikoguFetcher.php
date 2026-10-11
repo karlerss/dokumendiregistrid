@@ -10,23 +10,61 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class RiigikoguFetcher extends BaseFetcher implements DateTypeBasedList
 {
-    private const IGNORED_TYPE = 'Üksuse istungi päevakorrapunkt';
+    /**
+     * Since the 2026 redesign the register's list is rendered client-side
+     * from this public JSON API (the <dokumendiregister-list api-base>).
+     */
+    private const API_BASE = 'https://www.riigikogu.ee/wp-json/riigikogu/v1/ems';
+    private const PAGE_SIZE = 100;
+
+    /** Agenda items of unit sittings are not documents worth mirroring. */
+    private const IGNORED_TYPE = 'unitAgendaItemDocument';
+
+    /** The register's own labels for its type codes (its documentTypes filter). */
+    private const TYPE_LABELS = [
+        'jobDescriptionDocument' => 'Ametijuhend',
+        'aruanne' => 'Aruanne',
+        'interpellationsDocument' => 'Arupärimine',
+        'interpellationsAnswerDocument' => 'Arupärimise vastamise teade',
+        'elDocument' => 'EL dokument',
+        'letterDocument' => 'Kiri',
+        'writtenQuestionDocument' => 'Kirjalik küsimus',
+        'writtenQuestionAnswerDocument' => 'Kirjaliku küsimuse vastus',
+        'collectiveAddressDocument' => 'Kollektiivne pöördumine',
+        'regulationDocument' => 'Korraldus',
+        'directiveDocument' => 'Käskkiri',
+        'contractDocument' => 'Leping',
+        'lisadokumendid' => 'Lisadokumendid',
+        'otherQuestionDocument' => 'Muud küsimused',
+        'decisionDocument' => 'Otsus',
+        'protokoll' => 'Protokoll',
+        'riigikoguSeisukoht' => 'Riigikogu seisukoht',
+        'commissionOpinionDocument' => 'Valdkondliku komisjoni arvamus',
+        'yldine' => 'Üldine',
+    ];
 
     /**
-     * Cached map of doc UUID -> type extracted while paging the list.
-     * The detail page has no "Dokumendi liik" field, so the type is
-     * carried from the search results table.
+     * What the list knows about each document (type label, reference,
+     * creation date), carried to store(): the detail page does not show
+     * the type and not always the reference.
+     *
+     * @var array<string, array{type: string, reference: ?string, created: ?string}>
      */
-    private array $typesByUuid = [];
+    private array $listed = [];
 
     public function list(Carbon $date, $type = null): array
     {
         $uuids = [];
-        $page = 1;
+        $page = 0;
         do {
-            $url = $this->buildListUrl($date, $page);
-            $body = $this->http()->get($url)->body();
-            [$pageUuids, $hasNext] = $this->parseListPage($body);
+            $response = $this->http()->get(self::API_BASE . '/documents', [
+                'page' => $page,
+                'size' => self::PAGE_SIZE,
+                'createdStart' => $date->format('Y-m-d'),
+                'createdEnd' => $date->format('Y-m-d'),
+                'sort' => 'created,DESC',
+            ]);
+            [$pageUuids, $hasNext] = $this->parseListResponse($response->status() === 400 ? [] : (array)$response->json());
             $uuids = [...$uuids, ...$pageUuids];
             $page++;
         } while ($hasNext);
@@ -34,32 +72,25 @@ class RiigikoguFetcher extends BaseFetcher implements DateTypeBasedList
         return $uuids;
     }
 
-    public function parseListPage(string $html): array
+    /** @return array{0: string[], 1: bool} uuids on this page, and whether another page follows */
+    public function parseListResponse(array $json): array
     {
-        $crawler = new Crawler($html);
         $uuids = [];
-
-        $crawler->filter('tbody.search-results-eelnoud tr')->each(function (Crawler $row) use (&$uuids) {
-            $cells = $row->filter('td');
-            if ($cells->count() < 4) {
-                return;
+        foreach ($json['_embedded']['content'] ?? [] as $row) {
+            $uuid = $row['uuid'] ?? null;
+            $code = (string)($row['documentType'] ?? '');
+            if (!$uuid || $code === self::IGNORED_TYPE) {
+                continue;
             }
-            $type = trim($cells->eq(3)->text());
-            if ($type === self::IGNORED_TYPE) {
-                return;
-            }
-            $link = $cells->eq(2)->filter('a');
-            if ($link->count() === 0) {
-                return;
-            }
-            $uuid = $this->extractUuidFromUrl($link->attr('href'));
-            if ($uuid !== null) {
-                $uuids[] = $uuid;
-                $this->typesByUuid[$uuid] = $type;
-            }
-        });
-
-        $hasNext = $crawler->filter('.pagination a.next')->count() > 0;
+            $uuids[] = $uuid;
+            $this->listed[$uuid] = [
+                'type' => self::TYPE_LABELS[$code] ?? $code,
+                'reference' => $row['reference'] ?? null,
+                'created' => $row['created'] ?? null,
+            ];
+        }
+        $page = $json['page'] ?? [];
+        $hasNext = isset($page['number'], $page['totalPages']) && $page['number'] + 1 < $page['totalPages'];
 
         return [$uuids, $hasNext];
     }
@@ -84,15 +115,19 @@ class RiigikoguFetcher extends BaseFetcher implements DateTypeBasedList
         $data = $this->parseDocumentPage($html);
 
         $regDateRaw = $data['Dokumendi loomise kuupäev'] ?? $data['Kuupäev'] ?? null;
+        $listed = $this->listed[$uuid] ?? [];
+        $registered = $regDateRaw
+            ? Carbon::createFromFormat('d.m.Y', $regDateRaw)
+            : (!empty($listed['created']) ? Carbon::parse($listed['created']) : null);
 
         $docProps = [
             'organisation_id' => $this->organisation->id,
             'url' => $docUrl,
             'original_id' => $uuid,
             'title' => $data['Pealkiri'] ?? '',
-            'reference' => $data['Dokumendi viit'] ?? '',
-            'registration_date' => $regDateRaw ? Carbon::createFromFormat('d.m.Y', $regDateRaw) : null,
-            'type' => $this->typesByUuid[$uuid] ?? '',
+            'reference' => $data['Dokumendi viit'] ?? $listed['reference'] ?? '',
+            'registration_date' => $registered,
+            'type' => $listed['type'] ?? '',
             'dossier' => $data['Toimik'] ?? null,
             'restriction' => $data['_restriction'],
             'to' => $data['Autor/Adressaat'] ?? null,
@@ -150,33 +185,9 @@ class RiigikoguFetcher extends BaseFetcher implements DateTypeBasedList
         });
     }
 
-    private function buildListUrl(Carbon $date, int $page): string
-    {
-        $d = $date->format('d.m.Y');
-        $params = http_build_query([
-            'pg' => $page,
-            'searchIn' => 'documents',
-            'startDate' => $d,
-            'endDate' => $d,
-            'order' => 'DESC',
-            'sortBy' => 'created',
-            'prepage' => 25,
-        ]);
-
-        return rtrim($this->organisation->registry_base_uri, '/') . '/?' . $params;
-    }
-
     private function buildDocUrl(string $uuid): string
     {
         return rtrim($this->organisation->registry_base_uri, '/') . '/dokument/' . $uuid . '/';
-    }
-
-    private function extractUuidFromUrl(string $url): ?string
-    {
-        if (preg_match('|dokument/([0-9a-f-]{36})|i', $url, $m)) {
-            return $m[1];
-        }
-        return null;
     }
 
     public function parseDocumentPage(string $html): array

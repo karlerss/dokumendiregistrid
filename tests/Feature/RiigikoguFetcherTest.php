@@ -38,70 +38,62 @@ class RiigikoguFetcherTest extends TestCase
         $this->assertStringStartsWith('https://www.riigikogu.ee/wp-json/riigikogu/v1/files/', $data['_file_urls'][0]);
     }
 
-    public function test_parse_list_page_filters_out_uksuse_istungi_paevakorrapunkt()
+    /** A documents-API page with the given rows: [uuid, documentType, reference]. */
+    private function apiList(array $rows, int $number = 0, int $totalPages = 1): array
     {
-        $html = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_list_2026-05-14_page1.html');
-
-        $fetcher = new RiigikoguFetcher($this->makeOrg());
-        [$uuids, $hasNext] = $fetcher->parseListPage($html);
-
-        // The fixture contains 25 rows: 18 of "Üksuse istungi päevakorrapunkt"
-        // and 7 of other types (Käskkiri, Kiri, Protokoll).
-        $this->assertCount(7, $uuids);
-        $this->assertTrue($hasNext);
-
-        $this->assertContains('5a0c8190-b1d1-49ba-bf96-bc6444eb5afa', $uuids);
-        $this->assertContains('e8a72f4e-a8d9-4d8e-95dc-e755c619123f', $uuids);
+        return [
+            '_embedded' => ['content' => array_map(fn($r) => [
+                'uuid' => $r[0], 'documentType' => $r[1], 'reference' => $r[2] ?? null,
+                'title' => 'x', 'created' => '2026-05-14T10:00:00.000',
+            ], $rows)],
+            'page' => ['size' => 100, 'totalElements' => count($rows), 'totalPages' => $totalPages, 'number' => $number],
+        ];
     }
 
-    public function test_parse_list_page_reports_no_next_when_pagination_lacks_next_link()
+    public function test_parse_list_response_skips_unit_agenda_items()
     {
-        $html = '<html><body><table><tbody class="search-results-eelnoud"></tbody></table>'
-            . '<div class="pagination"><a class="prev" href="?pg=1">Eelmine</a></div></body></html>';
+        $json = json_decode(file_get_contents(__DIR__ . '/../__fixtures/riigikogu_api_documents_2026-10-08.json'), true, flags: JSON_INVALID_UTF8_IGNORE);
 
-        $fetcher = new RiigikoguFetcher($this->makeOrg());
-        [$uuids, $hasNext] = $fetcher->parseListPage($html);
+        [$uuids, $hasNext] = (new RiigikoguFetcher($this->makeOrg()))->parseListResponse($json);
 
-        $this->assertSame([], $uuids);
+        // The recorded day has 69 rows: 51 unit agenda items and 18 documents.
+        $this->assertCount(18, $uuids);
         $this->assertFalse($hasNext);
     }
 
-    public function test_list_paginates_until_no_next_link()
+    public function test_list_pages_through_the_api_until_the_last_page()
     {
-        $page1 = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_list_2026-05-14_page1.html');
-        // Strip the "next" link so pagination stops after page 2.
-        $page2 = str_replace('class="next"', 'class="no-more"', $page1);
-
-        $base = 'https://www.riigikogu.ee/tegevus/dokumendiregister/';
         Http::fake([
-            $base . '?pg=1*' => Http::response($page1, 200),
-            $base . '?pg=2*' => Http::response($page2, 200),
+            'www.riigikogu.ee/wp-json/riigikogu/v1/ems/documents?page=0*' => Http::response($this->apiList([
+                ['aaaaaaaa-0000-0000-0000-000000000001', 'letterDocument'],
+                ['aaaaaaaa-0000-0000-0000-000000000002', 'unitAgendaItemDocument'],
+            ], 0, 2), 200),
+            'www.riigikogu.ee/wp-json/riigikogu/v1/ems/documents?page=1*' => Http::response($this->apiList([
+                ['aaaaaaaa-0000-0000-0000-000000000003', 'protokoll'],
+            ], 1, 2), 200),
         ]);
 
-        $fetcher = new RiigikoguFetcher($this->makeOrg());
-        $uuids = $fetcher->list(Carbon::parse('2026-05-14'));
+        $uuids = (new RiigikoguFetcher($this->makeOrg()))->list(Carbon::parse('2026-05-14'));
 
-        // Each page yields 7 non-filtered UUIDs.
-        $this->assertCount(14, $uuids);
+        $this->assertSame(['aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000003'], $uuids);
+        Http::assertSent(fn($request) => str_contains($request->url(), 'createdStart=2026-05-14') && str_contains($request->url(), 'createdEnd=2026-05-14'));
     }
 
     public function test_store_maps_public_document_with_files()
     {
-        $listHtml = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_list_2026-05-14_page1.html');
         $docHtml = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_document_5a0c8190.html');
 
         $base = 'https://www.riigikogu.ee/tegevus/dokumendiregister/';
-        $listHtmlNoNext = str_replace('class="next"', 'class="no-more"', $listHtml);
 
         Http::fake([
-            $base . '?pg=1*' => Http::response($listHtmlNoNext, 200),
+            'www.riigikogu.ee/wp-json/riigikogu/v1/ems/documents*' => Http::response($this->apiList([['5a0c8190-b1d1-49ba-bf96-bc6444eb5afa', 'directiveDocument', '4-11/26-12']]), 200),
             $base . 'dokument/5a0c8190-b1d1-49ba-bf96-bc6444eb5afa/' => Http::response($docHtml, 200),
         ]);
 
         $fetcher = new RiigikoguFetcher($this->makeOrg());
         $fetcher->setDownloadFiles(false);
 
-        // list() populates the type cache used by store().
+        // list() carries the type label used by store().
         $uuids = $fetcher->list(Carbon::parse('2026-05-14'));
         $this->assertContains('5a0c8190-b1d1-49ba-bf96-bc6444eb5afa', $uuids);
 
@@ -125,14 +117,12 @@ class RiigikoguFetcherTest extends TestCase
 
     public function test_store_maps_restricted_document_with_basis()
     {
-        $listHtml = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_list_2026-05-14_page1.html');
         $docHtml = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_document_e8a72f4e.html');
 
         $base = 'https://www.riigikogu.ee/tegevus/dokumendiregister/';
-        $listHtmlNoNext = str_replace('class="next"', 'class="no-more"', $listHtml);
 
         Http::fake([
-            $base . '?pg=1*' => Http::response($listHtmlNoNext, 200),
+            'www.riigikogu.ee/wp-json/riigikogu/v1/ems/documents*' => Http::response($this->apiList([['e8a72f4e-a8d9-4d8e-95dc-e755c619123f', 'letterDocument', '1-6/26-93/1']]), 200),
             $base . 'dokument/e8a72f4e-a8d9-4d8e-95dc-e755c619123f/' => Http::response($docHtml, 200),
         ]);
 
@@ -169,15 +159,13 @@ class RiigikoguFetcherTest extends TestCase
         // The link text on the doc page for dae70257 is just the label
         // "Sissetulev kiri" (no extension). The real filename with extension
         // is only available via the Content-Disposition response header.
-        $listHtml = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_list_2026-05-14_page1.html');
         $docHtml = file_get_contents(__DIR__ . '/../__fixtures/riigikogu_document_dae70257.html');
 
         $base = 'https://www.riigikogu.ee/tegevus/dokumendiregister/';
-        $listHtmlNoNext = str_replace('class="next"', 'class="no-more"', $listHtml);
 
         Storage::fake('r2');
         Http::fake([
-            $base . '?pg=1*' => Http::response($listHtmlNoNext, 200),
+            'www.riigikogu.ee/wp-json/riigikogu/v1/ems/documents*' => Http::response($this->apiList([['dae70257-aeb9-431a-8fa9-0d77119189d0', 'letterDocument']]), 200),
             $base . 'dokument/dae70257-aeb9-431a-8fa9-0d77119189d0/' => Http::response($docHtml, 200),
             'https://www.riigikogu.ee/download/d1de0824-6ce1-4c51-af4a-2c11a7ce841a' => Http::response(
                 'dummy body',

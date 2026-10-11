@@ -40,10 +40,11 @@ class BatchRedaction
      * /haldus/isikuandmed), whatever their band.
      *
      * @param int[] $documentIds
+     * @param string[] $bands only documents whose current assessment is in these bands
      */
-    public function runForDocuments(array $documentIds, string $reason, ?string $reference, bool $apply, string $actor = self::ACTOR): array
+    public function runForDocuments(array $documentIds, string $reason, ?string $reference, bool $apply, string $actor = self::ACTOR, array $bands = PiiAssessment::BANDS): array
     {
-        return $this->over($documentIds, PiiAssessment::BANDS, $reason, $reference, $apply, false, 0, $actor);
+        return $this->over($documentIds, $bands, $reason, $reference, $apply, false, 0, $actor);
     }
 
     private function over(array $documentIds, array $bands, string $reason, ?string $reference, bool $apply, bool $includeReviewed, int $limit, string $actor): array

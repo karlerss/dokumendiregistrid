@@ -13,6 +13,10 @@ Artisan::command('inspire', function () {
 // `* * * * * php artisan schedule:run` in the app user's crontab.
 Schedule::command('pii:enqueue')->everyMinute()->withoutOverlapping(10);
 
+// Standing rule: HIGH/WARN assessments nobody reviewed within
+// compliance.auto_redact_after_days are redacted with their plan.
+Schedule::command('pii:auto-redact')->dailyAt('03:30')->withoutOverlapping(120);
+
 // Failed queue jobs are recorded on the pii_* rows themselves; the
 // failed_jobs table only needs to be kept from growing.
 Schedule::command('queue:prune-failed', ['--hours' => 168])->weekly();

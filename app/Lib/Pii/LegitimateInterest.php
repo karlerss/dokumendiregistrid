@@ -422,14 +422,20 @@ class LegitimateInterest
         }
         if ($decision?->decision_reason) {
             $why = rtrim($this->sentence($decision->decision_reason), '.');
-            $paragraphs[] = 'Dokumendi sisulisel läbivaatamisel ' . $decision->decided_at->format('d.m.Y') . ' otsustati '
-                . match ($decision->decision) {
-                    ReviewItem::DECISION_KEEP => 'jätta see avalikuks',
-                    ReviewItem::DECISION_REDACT => 'see redigeerida',
-                    ReviewItem::DECISION_REMOVE => 'see eemaldada',
-                    default => 'rakendada valitud meedet',
-                } . ' põhjendusega, et ' . mb_strtolower(mb_substr($why, 0, 1)) . mb_substr($why, 1) . '.'
-                . ($decision->decision === ReviewItem::DECISION_REDACT && $redacted ? ' Rakendatud redigeerimine vastab sellele kaitsevajadusele, vähendades avaldamisest tulenevat eraelu riivet.' : '');
+            if ($decision->decided_by === \App\Lib\Compliance\AutoRedaction::ACTOR) {
+                // Not a human review: say what actually happened.
+                $paragraphs[] = $decision->decided_at->format('d.m.Y') . ' rakendati dokumendile automaatselt isikuandmete hinnangu redigeerimisplaan, kuna kõrge või hoiatava tasemega hinnang jäi ettenähtud aja jooksul läbi vaatamata.'
+                    . ($redacted ? ' Rakendatud redigeerimine vähendab avaldamisest tulenevat eraelu riivet.' : '');
+            } else {
+                $paragraphs[] = 'Dokumendi sisulisel läbivaatamisel ' . $decision->decided_at->format('d.m.Y') . ' otsustati '
+                    . match ($decision->decision) {
+                        ReviewItem::DECISION_KEEP => 'jätta see avalikuks',
+                        ReviewItem::DECISION_REDACT => 'see redigeerida',
+                        ReviewItem::DECISION_REMOVE => 'see eemaldada',
+                        default => 'rakendada valitud meedet',
+                    } . ' põhjendusega, et ' . mb_strtolower(mb_substr($why, 0, 1)) . mb_substr($why, 1) . '.'
+                    . ($decision->decision === ReviewItem::DECISION_REDACT && $redacted ? ' Rakendatud redigeerimine vastab sellele kaitsevajadusele, vähendades avaldamisest tulenevat eraelu riivet.' : '');
+            }
         }
         if ($redaction && $redacted) {
             $files = collect($redaction->plan['files'] ?? [])->pluck('action');

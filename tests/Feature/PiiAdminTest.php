@@ -322,6 +322,57 @@ class PiiAdminTest extends TestCase
         $this->asAdmin()->from(route('pii.index'))->post(route('pii.removeFailed'), ['reason' => $reason])->assertSessionHas('error');
     }
 
+    public function test_unreviewed_warn_or_high_is_redacted_automatically_after_the_configured_days(): void
+    {
+        Queue::fake();
+        config(['compliance.auto_redact_after_days' => 7]);
+        $doc = $this->doc();
+        $assessment = $this->assessed($doc); // WARN, unreviewed
+        $auto = app(\App\Lib\Compliance\AutoRedaction::class);
+
+        $this->assertSame(0, $auto->run(true)['counts']['redact'], 'not due yet');
+        $this->asAdmin()->get(route('pii.index'))->assertOk()->assertSee('automaatne redigeerimine ' . now()->addDays(7)->format('d.m'));
+
+        $assessment->forceFill(['created_at' => now()->subDays(8)])->save();
+        $this->assertSame(1, $auto->run(false)['counts']['redact']);
+        $this->assertSame(0, PiiRedaction::count(), 'dry run changes nothing');
+
+        $this->artisan('pii:auto-redact')->assertSuccessful();
+        $this->assertSame($doc->id, PiiRedaction::sole()->document_id);
+        $item = \App\Models\ReviewItem::where('document_id', $doc->id)->sole();
+        $this->assertSame(['redact', 'automaat'], [$item->decision, $item->decided_by]);
+        $this->assertStringContainsString('7 päeva jooksul läbi vaatamata', $item->decision_reason);
+        $this->assertTrue(\App\Models\ComplianceAction::where('effect', 'auto_redaction_completed')->exists());
+        Queue::assertPushed(RedactDocument::class, 1);
+
+        // Once redacted (reviewed) it is not picked again, and the LIA says it was automatic.
+        $this->assertSame(0, $auto->run(true)['counts']['redact']);
+        PiiRedaction::sole()->forceFill(['text_status' => PiiRedaction::STATUS_APPLIED, 'files_status' => PiiRedaction::STATUS_APPLIED])->save();
+        $text = collect((new \App\Lib\Pii\LegitimateInterest())->assess($doc->fresh())['sections'])->pluck('paragraphs')->flatten()->implode(' ');
+        $this->assertStringContainsString('rakendati dokumendile automaatselt isikuandmete hinnangu redigeerimisplaan', $text);
+        $this->assertStringNotContainsString('sisulisel läbivaatamisel', $text);
+    }
+
+    public function test_auto_redaction_skips_reviewed_info_and_can_be_switched_off(): void
+    {
+        Queue::fake();
+        $doc = $this->doc();
+        $assessment = $this->assessed($doc);
+        $assessment->forceFill(['created_at' => now()->subDays(30)])->save();
+
+        config(['compliance.auto_redact_after_days' => 0]);
+        $this->assertNull(app(\App\Lib\Compliance\AutoRedaction::class)->run(true));
+
+        config(['compliance.auto_redact_after_days' => 7]);
+        $assessment->forceFill(['band' => PiiAssessment::BAND_INFO])->save();
+        $this->assertSame([], \App\Lib\Compliance\AutoRedaction::due()->pluck('id')->all());
+
+        $assessment->forceFill(['band' => PiiAssessment::BAND_WARN])->save();
+        $assessment->review(PiiAssessment::REVIEW_ACKNOWLEDGED, 'admin');
+        $this->assertSame([], \App\Lib\Compliance\AutoRedaction::due()->pluck('id')->all());
+        $this->assertSame(0, PiiRedaction::count());
+    }
+
     public function test_redact_creates_plan_and_dispatches_only_once(): void
     {
         Queue::fake();

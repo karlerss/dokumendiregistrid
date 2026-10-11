@@ -278,6 +278,9 @@
                                 @if($doc?->redacted_at)<div class="text-green-700">redigeeritud {{ $doc->redacted_at->format('d.m.Y') }}</div>@endif
                                 @if($active && $active->isInProgress())<div class="text-blue-700">redigeerimine pooleli</div>@endif
                                 @if($a->isReviewed())<div class="text-gray-500">läbivaadatud · {{ $a->review_action }}</div>@endif
+                                @if(!$a->isReviewed() && !$active && $autoRedactDays && in_array($a->band, \App\Lib\Compliance\AutoRedaction::BANDS, true))
+                                    <div class="text-orange-700" title="Läbivaatamata kõrge/hoiatus-hinnang redigeeritakse plaani järgi automaatselt">automaatne redigeerimine {{ $a->created_at->copy()->addDays($autoRedactDays)->max(now())->format('d.m') }}</div>
+                                @endif
                             </td>
                             <td class="text-xs" style="max-width: 16rem">
                                 @if($l = $lia[$a->document_id] ?? null)

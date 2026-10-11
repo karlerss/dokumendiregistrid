@@ -100,6 +100,7 @@ class PiiController extends Controller
                 : collect(),
             'failedRedactions' => $failedRedactions,
             'failedRedactionCount' => $failedRedactionCount,
+            'autoRedactDays' => \App\Lib\Compliance\AutoRedaction::days(),
             'tokensToday' => Extractor::tokensUsedToday(),
             'cap' => (int)config('pii.daily_token_cap'),
             'capHit' => Cache::get(PiiEnqueue::KEY_CAP_HIT),

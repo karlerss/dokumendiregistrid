@@ -20,4 +20,9 @@ return [
 
     // Placeholder title when tombstone_keep_text is false (title is NOT NULL).
     'tombstone_title' => '[eemaldatud]',
+
+    // Standing rule set by the site owner: a HIGH or WARN PII assessment that
+    // nobody has reviewed within this many days is redacted with its plan,
+    // as one recorded decision per document (pii:auto-redact, daily). 0 = off.
+    'auto_redact_after_days' => (int)env('COMPLIANCE_AUTO_REDACT_AFTER_DAYS', 7),
 ];

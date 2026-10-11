@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Lib\Pii\LegitimateInterest;
+
 use App\Lib\Compliance\DocumentAdminData;
 use App\Models\ReviewItem;
 use App\Lib\Compliance\DecisionException;
@@ -121,6 +123,7 @@ class MainController extends Controller
         return view('document', [
             'document' => $document,
             'admin' => session('is_admin') ? app(DocumentAdminData::class)->for($document) : null,
+            'lia' => (new LegitimateInterest())->forPublic($document),
         ]);
     }
 

@@ -168,6 +168,20 @@ class LegitimateInterest
         ];
     }
 
+    /**
+     * The assessment as shown to the public: only for documents whose PII
+     * assessment an admin has reviewed, and only when it justifies keeping
+     * the document public.
+     */
+    public function forPublic(Document $document): ?array
+    {
+        if ($document->isRemoved() || !$document->latestPiiAssessment?->isReviewed()) {
+            return null;
+        }
+        $lia = $this->assess($document);
+        return $lia && in_array($lia['outcome'], [self::PASS, self::PASS_REDACTED], true) ? $lia : null;
+    }
+
     private function outcome(PiiAssessment $assessment, Collection $kept, Collection $minimised, ?PiiRedaction $redaction, bool $redacted, ?DocumentRemoteState $remote, Collection $changes, ?ReviewItem $decision, array $flags, array $sensitive): array
     {
         $filesDone = $redacted && in_array($redaction->files_status, [PiiRedaction::STATUS_APPLIED, PiiRedaction::STATUS_SKIPPED], true);

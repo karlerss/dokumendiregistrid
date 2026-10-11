@@ -324,6 +324,22 @@ class LegitimateInterestTest extends TestCase
         }
     }
 
+    public function test_public_page_shows_the_assessment_only_once_reviewed_and_passing(): void
+    {
+        $note = 'Õigustatud huvi alusel isikuandmete töötlemiseks on dokumendi kohta koostatud õigustatud huvi hinnang.';
+        $doc = $this->document([['Mari Ametnik', Contexts::PUBLIC_OFFICIAL_WORK_MATTER, [], null]]);
+        $this->get(route('document', $doc))->assertOk()->assertDontSee($note);
+
+        $doc->latestPiiAssessment->review(\App\Models\PiiAssessment::REVIEW_ACKNOWLEDGED, 'admin');
+        $this->get(route('document', $doc))->assertOk()
+            ->assertSee($note)->assertSee('Vaata hinnangut')->assertSee('1. Õigustatud huvi')->assertSee('4. Järeldus');
+
+        // A reviewed assessment that does not justify keeping the document is not shown.
+        $failing = $this->document([['Mari Maasikas', Contexts::PRIVATE_PERSON_APPLICANT, [], null]]);
+        $failing->latestPiiAssessment->review(\App\Models\PiiAssessment::REVIEW_ACKNOWLEDGED, 'admin');
+        $this->assertNull((new LegitimateInterest())->forPublic($failing->fresh()));
+    }
+
     public function test_preview_shows_on_the_document_panel_and_in_the_list(): void
     {
         $doc = $this->document([['Mari Ametnik', Contexts::PUBLIC_OFFICIAL_WORK_MATTER, [], null]]);

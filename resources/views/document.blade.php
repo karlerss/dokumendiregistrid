@@ -134,6 +134,17 @@
                                 >Ava uues aknas</a>
                             </td>
                         </tr>
+                        @if($lia ?? null)
+                            <tr>
+                                <td class="text-right">Õigustatud huvi</td>
+                                <td class="!text-gray-900">
+                                    Õigustatud huvi alusel isikuandmete töötlemiseks on dokumendi kohta koostatud õigustatud huvi hinnang.
+                                    <a href="#"
+                                       class="text-blue-500 hover:underline cursor-pointer whitespace-nowrap"
+                                       onclick="showModal('legitimate-interest'); return false;">Vaata hinnangut</a>
+                                </td>
+                            </tr>
+                        @endif
                         <tr>
                             <td></td>
                             <td>
@@ -149,6 +160,22 @@
                 <div class="md:col-span-1 col-span-2">
                     @if($admin ?? null)
                         @include('admin.document-panel')
+                    @endif
+                    @if($lia ?? null)
+                        <x-bladewind.modal
+                            name="legitimate-interest"
+                            title="Õigustatud huvi hinnang"
+                            size="large"
+                            show_action_buttons="false">
+                            <div class="text-sm text-gray-700 mt-2 max-h-[70vh] overflow-y-auto">
+                                @foreach($lia['sections'] as $section)
+                                    <h3 class="font-semibold text-gray-900 mt-4 first:mt-0">{{ $section['title'] }}</h3>
+                                    @foreach($section['paragraphs'] as $paragraph)
+                                        <p class="mt-2">{{ $paragraph }}</p>
+                                    @endforeach
+                                @endforeach
+                            </div>
+                        </x-bladewind.modal>
                     @endif
                     <div class="container mx-auto bg-white mb-8">
                         <x-bladewind.modal

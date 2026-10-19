@@ -64,7 +64,7 @@
                 <input name="reference" value="{{ old('reference') }}" class="w-full border rounded p-2 mb-2"/>
                 <details class="mb-2">
                     <summary class="cursor-pointer text-gray-600">Redigeerimiseks: eemaldatavad tekstid (valikuline)</summary>
-                    <p class="text-gray-500 mt-1">Üks rida kohta (nimed, isikukoodid, aadressid). Tühjaks jättes kasutatakse isikuandmete hinnangu plaani.</p>
+                    <p class="text-gray-500 mt-1">Üks rida kohta (nimed, isikukoodid, aadressid). Tühjaks jättes kasutatakse isikuandmete hinnangu plaani. Juba redigeeritud dokumendil jäävad varem eemaldatud tekstid eemaldatuks; piisab uutest.</p>
                     <textarea name="strings" rows="3" class="w-full border rounded p-2">{{ old('strings') }}</textarea>
                 </details>
                 <input type="hidden" name="decision" id="decision-input"/>

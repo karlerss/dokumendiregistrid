@@ -178,16 +178,30 @@ class Decider
 
     /**
      * What redacting would do: the replacements and the per-file actions,
-     * from the reviewer's strings or else the latest PII assessment.
+     * from the reviewer's strings or else the latest PII assessment. On a
+     * document already redacted, the new redaction takes over from the one
+     * in effect and keeps everything it removed.
      */
     private function redactionEffects(ReviewItem $item, array $options): array
     {
         $document = $item->document;
 
-        $active = PiiRedaction::query()->where('document_id', $document->id)->whereNull('reverted_at')
-            ->where('text_status', '!=', PiiRedaction::STATUS_FAILED)->exists();
-        if ($active) {
-            throw new DecisionException("Item #{$item->id}: the document already has a redaction in effect or in progress; revert it in /haldus/isikuandmed before redacting again.");
+        $previous = PiiRedaction::query()->where('document_id', $document->id)->whereNull('reverted_at')
+            ->where('text_status', '!=', PiiRedaction::STATUS_FAILED)->latest('id')->first();
+        if ($previous?->isInProgress()) {
+            throw new DecisionException("Item #{$item->id}: a redaction of this document is still running; wait for it to finish.");
+        }
+
+        // What the redaction in effect already removed no longer occurs in
+        // the text; listing it again adds nothing.
+        $alreadyRemoved = [];
+        if ($previous && !empty($options['strings'])) {
+            $removed = array_flip(array_map(fn($r) => Grounding::normalize($r['surface']), $previous->plan['replacements'] ?? []));
+            $alreadyRemoved = array_values(array_filter($options['strings'], fn($s) => isset($removed[Grounding::normalize(trim((string)$s))])));
+            $options['strings'] = array_values(array_diff($options['strings'], $alreadyRemoved));
+            if ($options['strings'] === []) {
+                throw new DecisionException("Item #{$item->id}: redaction #{$previous->id} already removes every string listed.");
+            }
         }
 
         $planner = new RedactionPlanner();
@@ -213,6 +227,9 @@ class Decider
         if (($plan['replacements'] ?? []) === []) {
             throw new DecisionException("Item #{$item->id}: the plan replaces nothing" . (!empty($options['strings']) ? ': none of the strings occur in the document.' : '; pass the strings to remove.'));
         }
+        if ($previous) {
+            $plan = $planner->supersede($plan, $previous);
+        }
 
         return [
             'plan' => $plan,
@@ -220,7 +237,10 @@ class Decider
             'files' => array_values($plan['files']),
             'acknowledges_status_changes' => DocumentStatusChange::where('document_id', $document->id)->whereNull('acknowledged_at')->pluck('id')->all(),
             'strings_not_found' => $notFound,
-            'public_change' => 'strings replaced in text, title and metadata; listed files replaced by redacted copies or withheld',
+            'strings_already_removed' => $alreadyRemoved,
+            'supersedes_redaction' => $previous?->id,
+            'public_change' => 'strings replaced in text, title and metadata; listed files replaced by redacted copies or withheld'
+                . ($previous ? "; replaces redaction #{$previous->id} and keeps everything it removed" : ''),
             'revertible' => true,
         ];
     }
@@ -270,7 +290,8 @@ class Decider
             'document_id' => $item->document_id,
             'effect' => 'redaction_dispatched',
             'actor' => $actor,
-            'result' => ['redaction_id' => $redaction->id, 'replacements' => count($plan['replacements']), 'files' => array_count_values(array_column($plan['files'], 'action'))],
+            'result' => ['redaction_id' => $redaction->id, 'replacements' => count($plan['replacements']), 'files' => array_count_values(array_column($plan['files'], 'action'))]
+                + (!empty($plan['supersedes']) ? ['supersedes' => $plan['supersedes']] : []),
         ]);
         return $redaction;
     }

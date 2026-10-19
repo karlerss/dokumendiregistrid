@@ -5,6 +5,7 @@ namespace App\Lib\Pii;
 use App\Models\Document;
 use App\Models\File;
 use App\Models\PiiAssessment;
+use App\Models\PiiRedaction;
 use App\Models\PiiSubject;
 use Illuminate\Support\Collection;
 
@@ -134,6 +135,43 @@ class RedactionPlanner
             'files' => $this->fileActions($document, $replacements),
             'clear_ai_summary' => $replacements !== [],
         ];
+    }
+
+    /**
+     * A plan that takes over from the redaction in effect: its replacements
+     * and file actions carry over, so nothing it removed comes back, and
+     * every touched file is redacted again from the original with the whole
+     * set. A surface both plans replace keeps the new plan's label.
+     */
+    public function supersede(array $plan, PiiRedaction $previous): array
+    {
+        $old = $previous->plan ?? [];
+
+        $replacements = $plan['replacements'] ?? [];
+        $seen = array_flip(array_map(fn($r) => Grounding::normalize($r['surface']), $replacements));
+        foreach ($old['replacements'] ?? [] as $r) {
+            $key = Grounding::normalize($r['surface']);
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $replacements[] = $r;
+            }
+        }
+        usort($replacements, fn($a, $b) => mb_strlen($b['surface']) <=> mb_strlen($a['surface']));
+
+        $files = $plan['files'] ?? [];
+        foreach ($old['files'] ?? [] as $id => $fa) {
+            $id = (string)$id;
+            if (isset($files[$id]) && $files[$id]['action'] === self::ACTION_KEEP && ($fa['action'] ?? self::ACTION_KEEP) !== self::ACTION_KEEP) {
+                $files[$id] = $fa;
+            }
+        }
+
+        return array_merge($plan, [
+            'replacements' => $replacements,
+            'files' => $files,
+            'clear_ai_summary' => !empty($plan['clear_ai_summary']) || !empty($old['clear_ai_summary']),
+            'supersedes' => $previous->id,
+        ]);
     }
 
     private function replacement(int $subjectId, string $surface, string $replacement, string $kind): array

@@ -6,6 +6,7 @@ use App\Lib\Compliance\ReviewQueue;
 use App\Lib\Pii\MessageRenderer;
 use App\Lib\Pii\PdfRedactor;
 use App\Lib\Pii\RedactionPlanner;
+use App\Lib\Pii\Redactor;
 use App\Mcp\Servers\ComplianceServer;
 use App\Mcp\Tools\DecideTool;
 use App\Models\Document;
@@ -267,7 +268,7 @@ class MessageRedactionTest extends TestCase
         $this->assertSame('redacted', $change->fresh()->action);
     }
 
-    public function test_redact_without_assessment_needs_strings_and_refuses_a_second_redaction(): void
+    public function test_redact_without_assessment_needs_strings_and_waits_for_a_running_redaction(): void
     {
         $this->eml();
         $item = app(ReviewQueue::class)->flag($this->doc, null, ReviewItem::SOURCE_LETTER, ReviewItem::PRIORITY_NAMED, 'kiri', null);
@@ -279,8 +280,67 @@ class MessageRedactionTest extends TestCase
         ComplianceServer::tool(DecideTool::class, ['item_id' => $item->id, 'decision' => 'redact', 'reason' => 'test reason', 'strings' => ['Mari Maasikas'], 'confirm' => true])
             ->assertHasErrors(['plan_id']);
 
-        PiiRedaction::create(['document_id' => $this->doc->id, 'applied_by' => 'admin', 'plan' => [], 'text_status' => 'applied', 'files_status' => 'applied']);
+        PiiRedaction::create(['document_id' => $this->doc->id, 'applied_by' => 'admin', 'plan' => [], 'text_status' => 'applied', 'files_status' => 'pending']);
         ComplianceServer::tool(DecideTool::class, ['item_id' => $item->id, 'decision' => 'redact', 'reason' => 'test reason', 'strings' => ['Mari Maasikas']])
-            ->assertHasErrors(['already has a redaction']);
+            ->assertHasErrors(['still running']);
+    }
+
+    public function test_redacting_again_takes_over_and_keeps_what_the_first_redaction_removed(): void
+    {
+        $eml = $this->eml();
+        $pdf = $this->file('lisa.pdf', '%PDF-1.4 original', ['contents' => 'Lisa: Mari Maasikas taotleb parkimiskohta Pargi tänava maja juures.']);
+        $this->doc->ftsIndexSingle();
+        $redact = function (array $strings): array {
+            $item = app(ReviewQueue::class)->flag($this->doc, null, ReviewItem::SOURCE_LETTER, ReviewItem::PRIORITY_NAMED, 'kiri', null, ['public_sector' => false, 'personal_data' => true]);
+            $args = ['item_id' => $item->id, 'decision' => 'redact', 'reason' => 'Eraisiku andmed.', 'strings' => $strings];
+            $plan = $this->tool($args);
+            $this->tool($args + ['confirm' => true, 'plan_id' => $plan['plan_id']]);
+            return $plan;
+        };
+
+        $redact(['Mari Maasikas']);
+        $first = PiiRedaction::sole();
+        $firstCopies = [$eml->fresh()->redacted_location, $pdf->fresh()->redacted_location];
+        $this->assertNotContains(null, $firstCopies);
+
+        ComplianceServer::tool(DecideTool::class, ['item_id' => app(ReviewQueue::class)->flag($this->doc, null, ReviewItem::SOURCE_LETTER, ReviewItem::PRIORITY_NAMED, 'kiri', null)->id, 'decision' => 'redact', 'reason' => 'test reason', 'strings' => ['Mari Maasikas']])
+            ->assertHasErrors(['already removes every string']);
+
+        $plan = $redact(['Mari Maasikas', 'parkimiskohta']);
+        $this->assertSame(['Mari Maasikas'], $plan['effects']['strings_already_removed']);
+        $this->assertSame($first->id, $plan['effects']['supersedes_redaction']);
+        $this->assertEqualsCanonicalizing(['Mari Maasikas', 'parkimiskohta'], array_column($plan['effects']['replacements'], 'surface'));
+
+        $second = PiiRedaction::query()->latest('id')->first();
+        $this->assertSame(PiiRedaction::STATUS_APPLIED, $second->text_status, json_encode($second->log));
+        $this->assertSame(PiiRedaction::STATUS_APPLIED, $second->files_status, json_encode($second->log));
+        $this->assertTrue($first->fresh()->isReverted(), 'the first redaction is no longer in effect');
+        $this->assertSame($second->id, $this->doc->fresh()->activePiiRedaction()->id);
+
+        foreach ([$eml, $pdf] as $file) {
+            $file->refresh();
+            $this->assertStringNotContainsString('Maasikas', $file->contents);
+            $this->assertStringNotContainsString('parkimiskohta', $file->contents);
+            $this->assertNotContains($file->redacted_location, $firstCopies);
+            Storage::disk('r2')->assertExists($file->redacted_location);
+            Storage::disk('r2_private')->assertExists($file->location);
+            Storage::disk('r2')->assertMissing($file->location);
+        }
+        foreach ($firstCopies as $key) {
+            Storage::disk('r2')->assertMissing($key);
+        }
+        // Redacted again from the original in the private bucket (the fake redactor copies its input).
+        $this->assertSame('%PDF-1.4 original', Storage::disk('r2')->get($pdf->redacted_location));
+
+        // Revert goes back to the original, past both redactions.
+        app(Redactor::class)->revert($second->fresh(), 'test');
+        $eml->refresh();
+        $pdf->refresh();
+        $this->assertStringContainsString('Mari Maasikas palub parkimiskohta', $eml->contents);
+        $this->assertFalse($eml->original_withheld);
+        $this->assertNull($pdf->redacted_location);
+        Storage::disk('r2')->assertExists($pdf->location);
+        $this->assertNull($this->doc->fresh()->redacted_at);
+        $this->assertNull($this->doc->fresh()->activePiiRedaction());
     }
 }

@@ -44,9 +44,19 @@ class Redactor
         $plan = $redaction->plan;
         $replacements = $plan['replacements'] ?? [];
         $fileActions = $plan['files'] ?? [];
+        $staleCopies = [];
 
         try {
-            DB::transaction(function () use ($document, $redaction, $plan, $replacements, $fileActions) {
+            DB::transaction(function () use ($document, $redaction, $plan, $replacements, $fileActions, &$staleCopies) {
+                // Taking over from the redaction in effect (RedactionPlanner::supersede).
+                $previous = !empty($plan['supersedes']) ? PiiRedaction::find($plan['supersedes']) : null;
+                if ($previous?->isInProgress()) {
+                    throw new \RuntimeException("redaction #{$previous->id} is still running");
+                }
+                if ($previous?->isReverted()) {
+                    $previous = null; // the document is back to its original: nothing to take over
+                }
+
                 $before = ['document' => [], 'files' => [], 'signatures' => []];
 
                 foreach (['title', 'to', 'responsible', 'ai_title', 'ai_summary', 'file_contents', 'redacted_at'] as $col) {
@@ -74,6 +84,11 @@ class Redactor
                     if ($action !== RedactionPlanner::ACTION_KEEP) {
                         // Link off immediately; the file step fills redacted_location later.
                         $file->original_withheld = true;
+                        // An earlier redacted copy still shows what this plan adds.
+                        if ($file->redacted_location) {
+                            $staleCopies[] = $file->redacted_location;
+                            $file->redacted_location = null;
+                        }
                     }
                     $file->redacted_at = now();
                     $file->save();
@@ -109,6 +124,20 @@ class Redactor
                     throw new LeftoverException($leftover);
                 }
 
+                if ($previous) {
+                    // Revert goes back to the original, not to the earlier redaction.
+                    $prior = $previous->before ?? [];
+                    $before['document'] = array_merge($before['document'], $prior['document'] ?? []);
+                    foreach (['files', 'signatures'] as $kind) {
+                        $before[$kind] = array_replace($before[$kind], array_intersect_key($prior[$kind] ?? [], $before[$kind]));
+                    }
+                    $previous->reverted_at = now();
+                    $previous->reverted_by = $redaction->applied_by;
+                    $previous->appendLog('superseded', 'applied', ['by_redaction' => $redaction->id]);
+                    $previous->save();
+                    $redaction->appendLog('supersede', 'applied', ['redaction_id' => $previous->id]);
+                }
+
                 $redaction->before = $before;
                 $redaction->text_status = PiiRedaction::STATUS_APPLIED;
                 $redaction->applied_at = now();
@@ -127,6 +156,17 @@ class Redactor
             $redaction->appendLog('text', 'failed', ['error' => mb_substr(get_class($e) . ': ' . $e->getMessage(), 0, 1000)]);
             $redaction->save();
             return false;
+        }
+
+        if ($staleCopies) {
+            try {
+                Storage::disk(config('pii.public_disk'))->delete($staleCopies);
+                app(\App\Lib\CdnPurge::class)->keys($staleCopies);
+            } catch (\Throwable $e) {
+                // Unlinked already; the object only lingers in the bucket.
+                $redaction->appendLog('text', 'stale_copy_delete_failed', ['keys' => $staleCopies, 'error' => mb_substr($e->getMessage(), 0, 500)]);
+                $redaction->save();
+            }
         }
         return true;
     }
@@ -226,7 +266,8 @@ class Redactor
         $extra = [];
         try {
             $src = $dir . '/' . $this->safeBasename($file->location);
-            file_put_contents($src, Storage::disk(config('pii.public_disk'))->get($file->location));
+            // In the private bucket when an earlier redaction withheld it.
+            file_put_contents($src, app(OriginalText::class)->bytes($file));
             if ($convertFirst) {
                 // Spreadsheets clip and reformat cells when printed, so the
                 // PDF pass alone can miss what stays readable: replace in the
